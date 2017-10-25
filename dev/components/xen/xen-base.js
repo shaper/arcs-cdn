@@ -1,4 +1,4 @@
-class XenBase extends XenState(XenElement) {
+class XenBase extends XenElement(XenState(HTMLElement)) {
   get template() {
     // TODO(sjmiles): null check module?
     return this.constructor.module.querySelector('template');

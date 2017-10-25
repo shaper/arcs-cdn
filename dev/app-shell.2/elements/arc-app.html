@@ -17,9 +17,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="arc-store.html">
 <link rel="import" href="arc-auth.html">
 <link rel="import" href="arc-metadata.html">
+<link rel="import" href="../../components/toggle-button.html">
 
 <template>
-
   <style>
     arc-app, [arc-app] {
       display: block;
@@ -72,6 +72,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       <span arc-title style%="{{titleStatic}}" on-click="_onStartEditingTitle" unsafe-html="{{title}}"></span>
       <i on-click="_onNewClick">note_add</i>
       <!--<select on-change="_onUserSelected">{{usersOptions}}</select>-->
+      <toggle-button on-state="_onProfileState" icons="person_outline person"></toggle-button>
       <i on-click="_onProfileClick">{{profileStateIcon}}</i>
       <i on-click="_onShareClick">{{sharedStateIcon}}</i>
       <i on-click="_onCastClick">{{castIcon}}</i>
@@ -94,7 +95,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   </arc-shell>
 
   <arc-footer suggestions="{{plans}}" on-suggest="_onSuggest"></arc-footer>
-
 </template>
 
 <script>
@@ -109,7 +109,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     _getInitialState() {
       let cdnPath = ArcApp.module.URL.split('/').slice(0, -3).join('/');
       return {
-        //title: '',
         cdnPath,
         icons: {
           profileStateIcon: `person_outline`,
@@ -170,10 +169,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       open(`${location.origin}${location.pathname}`, `_blank`);
     }
     _onConfig(e, config) {
+      if (config.key === 'profile') {
+        config.soloPath = 'profile.manifest';
+      }
       if (!config.key && !config.soloPath) {
         config.soloPath = 'launcher.manifest';
         config.launcher = true;
         config.key = 'launcher';
+        this._setState({title: 'Arc Launcher'});
       }
       this._setState({config, key: config.key});
     }
@@ -223,7 +226,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._setState({plan: plans[0].plan});
       }
       // why now and not during update()?
-      if (arc) {
+      if (arc && !config.launcher) {
         let description = utils.describeArc(arc);
         if (description !== title) {
           this._setState({title: description});
@@ -238,11 +241,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       this._setState({plan: suggestion.plan});
     }
     _onArcsList(e, data) {
-      let keys = Object.keys(data);
+      let keys = Object.keys(data).filter(k => k !== 'launcher');
       let icons = ['settings','movie','new_releases','high_quality','room_service','casino','child_care','spa','kitchen'];
       let colors = ['darkred','darkblue','darkgreen','darkorange','black'];
       let arcs = keys.map(k => {
-        let description = data[k].description || Arcs.utils.randomName();
+        let description = data[k].description || k; //Arcs.utils.randomName();
         return {
           key: k,
           description,

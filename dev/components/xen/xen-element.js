@@ -9,7 +9,7 @@
  */
 (scope => {
 
-class XenElement extends HTMLElement {
+let XenElement = Base => class extends Base {
   constructor() {
     super();
     this._mounted = false;
