@@ -28,19 +28,24 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
   </style>
   <!--<arc-store key="{{key}}" on-key="_onKey"></arc-store>-->
-  <arc-host config="{{config}}" user="{{user}}" plans="{{plans}}" plan="{{plan}}" planning="{{ready}}" on-arc="_onPropagate" on-planner="_onPropagate" on-plans="_onPropagate">
+  <arc-host
+    config="{{config}}"
+    plans="{{plans}}"
+    plan="{{plan}}"
+    on-arc="_onPropagate"
+    on-planner="_onPropagate"
+    on-plans="_onPropagate"
+    on-applied="_onPropagate">
     <slot></slot>
   </arc-host>
 </template>
 
 <script>
   class ArcShell extends XenBase {
-    static get observedAttributes() { return ['config', 'user', 'ready', 'plans', 'plan']};
+    static get observedAttributes() { return ['config', 'plans', 'plan']};
     _render(props, state) {
-      let {user, key, config, ready, plans, plan} = props;
-      if (config) {
-        let title = 'Sample Arc';
-        return {title, user, key, config, plans, plan, ready};
+      if (props.config) {
+        return props;
       }
     }
     _onPropagate(e, plans) {

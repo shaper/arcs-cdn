@@ -20,11 +20,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           state.view = this._createView(arc, state.manifest, options, data);
         }
         if (state.view) {
-          this._fire('view', state.view);
+          //this._fire('view', state.view);
         }
       } else if (state.view && data != lastProps.data) {
-        // repopulate
+        // (re)populate
         this._updateView(state.view, data, arc);
+        this._fire('view', state.view);
       }
     }
     _createView(arc, manifest, {name, tags, type}, data) {
@@ -35,6 +36,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       let schema = manifest.findSchemaByName(type);
       let typeOf = viewOf ? schema.type.viewOf() : schema.type;
+      tags = ['#nosync'].concat(tags);
       // manifest-view, for `map`, `copy`, `?`
       //let view = manifest.newView(type, name, arc.generateID(), ['#identities']);
       // arc-view, suitable for `use`, `?`

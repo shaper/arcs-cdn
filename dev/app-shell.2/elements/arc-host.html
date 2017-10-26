@@ -130,24 +130,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       return {folder, content};
     }
     async _plan(arc) {
-      //ArcHost.groupCollapsed('planning');
       //ArcHost.log('planning');
-      //debugger;
-      //this._setState({planning: true});
       let plans;
       try {
-        //let didApplyStep;
-        //do {
-          //plans && ArcHost.log(`plans`, plans);
-          plans = await Arcs.utils.makePlans(arc, 5000);
-          //didApplyStep = await SharingTools.applyAcceptedSteps(plans);
-        //} while(didApplyStep);
-        //document.dispatchEvent(new CustomEvent('generations', {detail: plans.generations}));
-        //this._setState({plans});
-        //this.searchPlans();
+        plans = await Arcs.utils.makePlans(arc, 5000);
       } finally {
-        //this._setState({planning: false});
-        //console.groupEnd();
         ArcHost.log(`plans`, plans);
       }
       return plans || [];
@@ -163,8 +150,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       return new Promise((resolve, reject) => {
         setTimeout(resolve, 200);
       }).then(() => {
-        //StorageTools.syncStorage();
-        //document.dispatchEvent(new CustomEvent('apply', {detail: {plan, arc: this.arc}}));
+        this._fire('applied', plan);
       });
     }
   }

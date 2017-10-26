@@ -1,22 +1,23 @@
-<template><style>
+<template>
+  <style>
     :host {
-      display: inline-block;
+      display: inline-flex;
       font-size: 24px;
       font-style: normal;
-      vertical-align: middle;
       cursor: pointer;
-      border: 1px solid gray;
+      user-select: none;
     }
     span {
       display: inline-block;
       font-size: inherit;
       font-style: inherit;
       font-family: 'Material Icons';
+      line-height: 1;
       -webkit-font-feature-settings: 'liga';
       -webkit-font-smoothing: antialiased;
-      border: 1px solid magenta;
     }
-  </style><span on-click="_onToggle">{{icon}}</span></template>
+  </style>
+  <span on-click="_onToggle">{{icon}}</span></template>
 
 <script>
   class ToggleButton extends XenBase {

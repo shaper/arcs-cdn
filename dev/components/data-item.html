@@ -50,7 +50,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 </template>
 
 <script>
-  class DataItem extends XenState(XenElement) {
+  class DataItem extends XenBase {
     static get observedAttributes() { return ['name','value']; }
     _onCheckInput(e) {
       e.stopPropagation();

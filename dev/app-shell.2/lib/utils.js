@@ -68,6 +68,11 @@ let utils = {
       position: {line: 1, column: 0}
     });
   },
+  setUrlParam(name, value) {
+    let url = new URL(document.location.href);
+    url.searchParams.set(name, value);
+    window.history.replaceState({}, "", decodeURIComponent(url.href));
+  },
   // TODO: move this randomId to the backend.
   randomId() {
     return Date.now().toString(36).substr(2) + Math.random().toString(36).substr(2);
@@ -78,18 +83,13 @@ let utils = {
     let rl = list => list[Math.floor(Math.random()*list.length)];
     return `${rl(adjectives)}-${rl(nouns)}`.replace(/ /g, '-');
   },
-  setUrlParam(name, value) {
-    let url = new URL(document.location.href);
-    url.searchParams.set(name, value);
-    window.history.replaceState({}, "", decodeURIComponent(url.href));
-  },
   describeArc(arc) {
     let combinedSuggestion = Arcs.Description.getSuggestion(arc._activeRecipe, arc, null);
-    if (!combinedSuggestion) {
-      combinedSuggestion = arc._fakeName = arc._fakeName || Arcs.utils.randomName();
+    if (combinedSuggestion) {
+      let tags = Object.keys(arc._tags).filter(t => ['#nosync','#arcmetadata','#identity','#identities'].indexOf(t) < 0);
+      return `${tags.join(", ")}${tags.length ? ' - ' : ''}${combinedSuggestion}`;
     }
-    let tags = Object.keys(arc._tags).filter(t => ['#nosync','#arcmetadata','#identity','#identities'].indexOf(t) < 0);
-    return `${tags.join(", ")}${tags.length ? ' - ' : ''}${combinedSuggestion}`;
+    return '';
   }
 };
 

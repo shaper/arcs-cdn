@@ -30,9 +30,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   let db = firebase.initializeApp(firebaseConfig/*, 'arcs-storage'*/).database().ref(db_version);
 
   class ArcStore extends XenBase {
-    static get observedAttributes() { return ['key','metadata']; }
+    static get observedAttributes() { return ['key','metadata','users']; }
     _didMount() {
+      this._watching = new Set();
       this._watchArcs();
+      this._watchUsers();
     }
     _update(props, state, lastProps) {
       if ('key' in props && props.key === null) {
@@ -42,9 +44,37 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._watch();
       }
       if (props.metadata && lastProps.metadata !== props.metadata) {
-        this._store('', props.metadata);
+        this._arcChild.set(props.metadata);
+      }
+      if (props.users && lastProps.users !== props.users) {
+        this._usersChild.set(props.users);
       }
     }
+    // All (versioned) storage
+    get _db() {
+      return db;
+    }
+    async dump(path) {
+      let node = path ? this._db.child(path) : this._db;
+      let data = (await node.once('value')).val();
+      ArcStore.log(`dump`, node.toString(), data);
+    }
+    // All arcs storage (arcs)
+    get _arcsChild() {
+      return this._db.child('arcs');
+    }
+    _watchArcs() {
+      this._arcsOff && this._arcsOff();
+      let node = this._arcsChild;
+      ArcStore.log(`watching arcs`);
+      let handle = node.on('value', snap => {
+        let data = snap.val();
+        ArcStore.log(`retrieve arcs value`, data);
+        data && this._fire('arcs', data);
+      });
+      this._arcsOff = () => node.off(handle);
+    }
+    // Single arc storage (arcs/[key])
     _createKey() {
       let defaults = {
         description: Arcs.utils.randomName()
@@ -52,12 +82,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let key = this._arcsChild.push(defaults).key;
       ArcStore.log('createKey', key);
       this.dispatchEvent(new CustomEvent('key', {detail: key}));
-    }
-    get _db() {
-      return db;
-    }
-    get _arcsChild() {
-      return this._db.child('arcs');
     }
     get _arcChild() {
       return this._arcsChild.child(this._props.key)
@@ -73,37 +97,115 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       data = (await this._child(path).once('value')).val();
       ArcStore.log(`fetch${path ? path : ''}`, data);
     }
-    async dump(path) {
-      let node = this._arcsChild;
-      //let node = this._child(path);
-      let data = (await node.once('value')).val();
-      ArcStore.log(`dump`, node.toString(), data);
-    }
     _watch() {
       this._off && this._off();
       let node = this._arcChild;
       ArcStore.log(`watching`, this._props.key);
       let handle = node.on('value', snap => {
         let data = snap.val();
-        ArcStore.log(`arc [${this._props.key}]`, data);
+        ArcStore.log(`retrieve arc [${this._props.key}]`, data);
         data && this._fire('metadata', data);
       });
       this._off = () => node.off(handle);
     }
-    //
-    _watchArcs() {
-      this._arcsOff && this._arcsOff();
-      let node = this._arcsChild;
-      ArcStore.log(`watching arcs`);
+    // All users storage (arcs)
+    get _usersChild() {
+      return this._db.child('users');
+    }
+    _watchUsers() {
+      this._usersOff && this._usersOff();
+      let node = this._usersChild;
+      ArcStore.log(`watching users`);
       let handle = node.on('value', snap => {
         let data = snap.val();
-        ArcStore.log(`arcs value`, data);
-        data && this._fire('arcs', data);
+        ArcStore.log(`retrieve users value`, data);
+        this._fire('users', data);
       });
-      this._arcsOff = () => node.off(handle);
+      this._usersOff = () => node.off(handle);
+    }
+    async _retrieveProfile(user) {
+      let tasks = Object.keys(user.profiles).map(k => this._arcsChild.child(k).once('value'));
+      let snaps = await Promise.all(tasks);
+      let arcs = snaps.map(s => s.val());
+      ArcStore.log("profile arcs", arcs);
+    }
+    //
+    // views
+    thing(arc) {
+      arc._viewTags.forEach((tags, view) => {
+        if (!tags || !tags.has('#nosync')) {
+          this.doAThing(tags, view);
+        }
+      });
+    }
+    doAThing(tags, view) {
+      let viewId = this._getViewId(tags, view);
+      // Make sure we only synchronize each view at most once.
+      if (!this._watching.has(viewId)) {
+        this._watching.add(viewId);
+        let metadata = {
+          type: view.type || null,
+          name: view.name || null,
+          tags: [...tags],
+        };
+        ArcStore.log(metadata);
+        //
+        let node = this._arcChild.child(`views/${viewId}`);
+        node.update({metadata});
+        //
+        let first = true;
+        node = node.child('values');
+        this._watchView(node, view, data => {
+          if (first) {
+            first = false;
+            ArcStore.log('got first remote', view);
+            if (view.toList) {
+            } else {
+              let data = {}
+              Object.keys(view).filter(k => k[0] != '_').forEach(k => data[k] = view[k]);
+              ArcStore.log(data);
+            }
+            /*
+            view.
+            view.toList().forEach(e => {
+              node.set(removeUndefined(change.data))
+              ArcStore.log(e.id, e);
+              // Only store IDs that aren't already present remotely.
+              //if (!remoteIds.has(e.id)) {
+              //  remoteView.push(e);
+              //}
+            });
+            */
+          } else {
+            ArcStore.log('got subsequent remote');
+          }
+        });
+        /*
+        let remoteView = remoteViewMeta.child('values');
+        if (localView.type.isView) {
+          this._syncView(localView, remoteView);
+        }
+        if (localView.type.isEntity) {
+          this._syncVariable(localView, remoteView);
+        }
+        */
+      }
+    }
+    _getViewId(tags, view) {
+      let viewid = view.type.toString().replace(/ /g, '-').replace(/[\[\]]/g, '!');
+      if (tags && [...tags].length) {
+        viewid += '-' + [...tags][0].replace(/#/g, '');
+      }
+      return viewid;
+    }
+    _watchView(node, view, cb) {
+      node.on('value', snapshot => {
+        let data = snapshot.val();
+        ArcStore.log('view data', data);
+        cb(data);
+      });
     }
   }
-
   ArcStore.module = document.currentImport;
   ArcStore.log = XenBase.logFactory('ArcStore', '#a30000');
   customElements.define('arc-store', ArcStore);

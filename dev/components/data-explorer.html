@@ -22,7 +22,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 </template>
 
 <script>
-  class DataExplorer extends XenState(XenElement) {
+  class DataExplorer extends XenBase {
     static get observedAttributes() { return ['object']; }
     _doMount() {
       this._itemTemplate = DataExplorer.module.querySelector('[data-item]');

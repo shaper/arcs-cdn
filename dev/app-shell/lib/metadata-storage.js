@@ -49,7 +49,7 @@
       // TODO(noelutz): do we need to keep track of multiple keys if the same
       // Arc is imported twice (e.g., both as friend and profile Arc)?
       if (this._watchedArcs[key]) {
-        this._watchedArcs[key].push(watchedArc);  
+        this._watchedArcs[key].push(watchedArc);
       } else {
         this._watchedArcs[key] = [watchedArc];
       }
@@ -129,7 +129,7 @@
           } else {
             localView.clear();
           }
-        });  
+        });
       }
       return {id: viewId, node: remoteView};
     }
