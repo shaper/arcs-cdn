@@ -17,7 +17,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 (scope => {
   //let version = typeof Arcs === 'undefined' || !Arcs.version ? '/' : Arcs.version.replace(/\./g, '_');
   let db_version = '0_2_1';
-
   let firebaseConfig = {
     apiKey: "AIzaSyBme42moeI-2k8WgXh-6YK_wYyjEXo4Oz8",
     authDomain: "arcs-storage.firebaseapp.com",
@@ -26,11 +25,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     storageBucket: "arcs-storage.appspot.com",
     messagingSenderId: "779656349412"
   };
-
   let db = firebase.initializeApp(firebaseConfig/*, 'arcs-storage'*/).database().ref(db_version);
 
+  /* for debugging only */
+  db.dump = () => db.once('value').then(snap => console.log(db.data = snap.val()));
+  scope.db = db;
+
   class ArcStore extends XenBase {
-    static get observedAttributes() { return ['key','metadata','users']; }
+    static get observedAttributes() { return ['key','metadata','users','arc','viewtags']; }
     _didMount() {
       this._watching = new Set();
       this._watchArcs();
@@ -42,6 +44,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       if (props.key && props.key !== lastProps.key) {
         this._watch();
+      }
+      if (props.arc) {
+        this._watchViews(props.arc);
       }
       if (props.metadata && lastProps.metadata !== props.metadata) {
         this._arcChild.set(props.metadata);
@@ -131,64 +136,53 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     //
     // views
-    thing(arc) {
+    _watchViews(arc) {
+      //ArcStore.log('resyncing views...', arc._viewTags);
+      //if (this._viewWatches) {
+      //  this._viewWatches.forEach(w => w());
+      //}
+      //this._viewWatches = [];
       arc._viewTags.forEach((tags, view) => {
         if (!tags || !tags.has('#nosync')) {
-          this.doAThing(tags, view);
+          let off = this._syncView(arc, tags, view);
+          if (off) {
+            //this._viewWatches.push(off);
+          }
         }
       });
     }
-    doAThing(tags, view) {
+    _syncView(arc, tags, view) {
       let viewId = this._getViewId(tags, view);
       // Make sure we only synchronize each view at most once.
       if (!this._watching.has(viewId)) {
         this._watching.add(viewId);
+        // db node
+        let node = this._arcChild.child(`views/${viewId}`);
+        // force latest metadata
         let metadata = {
           type: view.type || null,
           name: view.name || null,
           tags: [...tags],
         };
-        ArcStore.log(metadata);
-        //
-        let node = this._arcChild.child(`views/${viewId}`);
         node.update({metadata});
-        //
-        let first = true;
+        // watch the db
         node = node.child('values');
-        this._watchView(node, view, data => {
-          if (first) {
-            first = false;
-            ArcStore.log('got first remote', view);
-            if (view.toList) {
-            } else {
-              let data = {}
-              Object.keys(view).filter(k => k[0] != '_').forEach(k => data[k] = view[k]);
-              ArcStore.log(data);
-            }
-            /*
-            view.
-            view.toList().forEach(e => {
-              node.set(removeUndefined(change.data))
-              ArcStore.log(e.id, e);
-              // Only store IDs that aren't already present remotely.
-              //if (!remoteIds.has(e.id)) {
-              //  remoteView.push(e);
-              //}
-            });
-            */
-          } else {
-            ArcStore.log('got subsequent remote');
+        let off = this._watchView(node, view, data => {
+          // only store if change did not originate here
+          if (!data.id.startsWith(arc.id)) {
+            ArcStore.log('import view data from db', data);
+            view.store ? view.store(data) : view.set(data);
           }
         });
-        /*
-        let remoteView = remoteViewMeta.child('values');
-        if (localView.type.isView) {
-          this._syncView(localView, remoteView);
-        }
-        if (localView.type.isEntity) {
-          this._syncVariable(localView, remoteView);
-        }
-        */
+        // watch the view
+        view.on('change', change => {
+          // only store if change originated here
+          if (change.data && change.data.id.startsWith(arc.id)) {
+            ArcStore.log('view changed', view, change);
+            node.set(this._getViewData(view));
+          }
+        }, this);
+        return off;
       }
     }
     _getViewId(tags, view) {
@@ -198,12 +192,30 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       return viewid;
     }
+    _getViewData(view) {
+      let data;
+      if (view.toList) {
+        data = view.toList();
+      } else {
+        let rawData = view._stored && view._stored.rawData || {};
+        data = {
+          id: view.id,
+          rawData
+        };
+      }
+      ArcStore.log('view data from Arc', view, data);
+      return data;
+    }
     _watchView(node, view, cb) {
-      node.on('value', snapshot => {
+      ArcStore.log('watching view', node.toString());
+      let handle = node.on('value', snapshot => {
         let data = snapshot.val();
-        ArcStore.log('view data', data);
-        cb(data);
+        ArcStore.log('view watch triggered', String(node), data);
+        if (data && data.rawData) {
+          cb(data);
+        }
       });
+      return () => node.off('value', handle);
     }
   }
   ArcStore.module = document.currentImport;

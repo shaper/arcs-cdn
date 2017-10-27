@@ -53,12 +53,16 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _updateView(view, data, arc) {
       ArcView.log(`updateView: [${view.name}]`, data);
-      view.toList().forEach(entity => {
-        view.remove(entity.id);
-      });
-      data.forEach(datum => {
-        view.store({id: arc.generateID(), rawData: datum});
-      });
+      if (view.toList) {
+        view.toList().forEach(entity => {
+          view.remove(entity.id);
+        });
+        data.forEach(datum => {
+          view.store({id: arc.generateID(), rawData: datum});
+        });
+      } else {
+        view.set({id: arc.generateID(), rawData: data});
+      }
     }
   }
   ArcView.module = document.currentImport;

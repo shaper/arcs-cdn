@@ -18,6 +18,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="arc-auth.html">
 <link rel="import" href="arc-metadata.html">
 <link rel="import" href="../../components/toggle-button.html">
+<link rel="import" href="../../components/explorer-hotkey.html">
 
 <template>
   <style>
@@ -82,24 +83,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <arc-auth on-auth="_onAuth"></arc-auth>
 
   <arc-config rootpath="{{cdnPath}}" on-config="_onConfig"></arc-config>
-  <arc-store
-    key="{{key}}" on-key="_onKey"
-    metadata="{{metadata}}" on-metadata="_onMetadata"
-    on-arcs="_onArcsList"
-    users="{{users}}" on-users="_onUsersList"
-  ></arc-store>
+  <arc-store arc="{{arc}}" on-arcs="_onArcsList" key="{{key}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata" users="{{users}}" on-users="_onUsersList"></arc-store>
   <arc-metadata plans="{{plans}}" plan="{{plan}}" steps="{{steps}}" step="{{step}}" on-step="_onStep" on-steps="_onSteps"></arc-metadata>
 
   <arc-view arc="{{arc}}" data="{{arcsViewData}}" options="{{arcsViewOptions}}" on-view="_onArcsView"></arc-view>
-  <arc-view arc="{{arc}}" data="{{identityData}}" options="{{identityViewOptions}}" on-view="_onIdentityView"></arc-view>
-  <arc-view arc="{{arc}}" data="{{identitiesData}}" options="{{identitiesViewOptions}}" on-view="_onIdentitiesView"></arc-view>
+  <arc-view arc="{{arc}}" data="{{identityViewData}}" options="{{identityViewOptions}}" on-view="_onIdentityView"></arc-view>
+  <arc-view arc="{{arc}}" data="{{identitiesViewData}}" options="{{identitiesViewOptions}}" on-view="_onIdentitiesView"></arc-view>
 
-  <arc-shell
-    config="{{config}}" user="{{user}}" ready="{{ready}}" plans="{{plans}}" plan="{{plan}}"
-    on-arc="_onArc"
-    on-plans="_onPlans"
-    on-applied="_onApplied"
-  >
+  <arc-shell config="{{config}}" user="{{user}}" ready="{{ready}}" plans="{{plans}}" plan="{{plan}}" on-arc="_onArc" on-plans="_onPlans" on-applied="_onApplied">
     <div slotid="toproot"></div>
     <div slotid="root"></div>
   </arc-shell>
@@ -155,8 +146,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       if (state.auth && state.users && !state.user) {
         state.user = state.users[0].name;
       }
-      if (state.auth && state.arc) {
-        state.identityViewData = this._synthesizeIdentityViewData(state.arc, state.auth);
+      if (!state.identityViewData && state.auth && state.arc) {
+        state.identityViewData = this._synthesizeIdentityViewData(state.arc, state.user); //state.auth);
       }
       if (state.config) {
         if (state.config.launcher) {
@@ -200,11 +191,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     _onArc(e, arc) {
       window.arc = arc;
       this._setState({arc});
-    }
-    _onPlanner(e, planner) {
-      if (!this._state.planner) {
-        this._setState({planner});
-      }
     }
     _onArcsView(e, view) {
       ArcApp.log('ArcsView', view);
@@ -250,6 +236,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     _onPlans(e, plans) {
       if (plans !== this._state.plans) {
         this._setState({plans});
+        document.dispatchEvent(new CustomEvent('generations', {detail: plans.generations}));
       }
     }
     _onStep(e, step) {
@@ -260,7 +247,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _onApplied(e, plan) {
       let state = this._state;
-      if (state.arc && state.metadata) {
+      //if (state.arc && state.metadata) {
         let description = utils.describeArc(state.arc);
         if (!description && !state.description) {
           description = utils.randomName();
@@ -269,7 +256,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           this._setState({description});
           this._updateMetadata({description});
         }
-      }
+      //}
+      this._invalidate();
     }
     _onArcsList(e, data) {
       let keys = Object.keys(data).filter(k => k !== 'launcher');
