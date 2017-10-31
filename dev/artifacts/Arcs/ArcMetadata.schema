@@ -11,3 +11,4 @@ schema ArcMetadata
     Text icon
     Text key
     Text href
+    Text color

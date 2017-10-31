@@ -75,9 +75,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let context = await this._loadManifest(config, loader);
       // composer
       let slotComposer = new Arcs.SlotComposer({
-        // root host owns particles and therefore can style them
-        // but particles may be projected into our viewport
-        rootContext: this.getRootNode().host,
+        rootContext: this,
         affordance: config.affordance,
         containerKind: config.containerKind
       });

@@ -16,7 +16,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
 (scope => {
   //let version = typeof Arcs === 'undefined' || !Arcs.version ? '/' : Arcs.version.replace(/\./g, '_');
-  let db_version = '0_2_1';
+  let db_version = '0_2_beta_1';
   let firebaseConfig = {
     apiKey: "AIzaSyBme42moeI-2k8WgXh-6YK_wYyjEXo4Oz8",
     authDomain: "arcs-storage.firebaseapp.com",
@@ -52,7 +52,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._arcChild.set(props.metadata);
       }
       if (props.users && lastProps.users !== props.users) {
-        this._usersChild.set(props.users);
+        //this._usersChild.set(props.users);
       }
     }
     // All (versioned) storage
@@ -64,7 +64,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let data = (await node.once('value')).val();
       ArcStore.log(`dump`, node.toString(), data);
     }
-    // All arcs storage (arcs)
+    //
+    // arcs
+    //
     get _arcsChild() {
       return this._db.child('arcs');
     }
@@ -79,7 +81,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       });
       this._arcsOff = () => node.off(handle);
     }
-    // Single arc storage (arcs/[key])
+    //
+    // current arc
+    //
     _createKey() {
       let defaults = {
         description: Arcs.utils.randomName()
@@ -113,7 +117,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       });
       this._off = () => node.off(handle);
     }
-    // All users storage (arcs)
+    //
+    // users
+    //
     get _usersChild() {
       return this._db.child('users');
     }
@@ -123,7 +129,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       ArcStore.log(`watching users`);
       let handle = node.on('value', snap => {
         let data = snap.val();
-        ArcStore.log(`retrieve users value`, data);
+        ArcStore.log(`retrieved users value`, data);
         this._fire('users', data);
       });
       this._usersOff = () => node.off(handle);
@@ -136,6 +142,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     //
     // views
+    //
     _watchViews(arc) {
       //ArcStore.log('resyncing views...', arc._viewTags);
       //if (this._viewWatches) {
@@ -165,25 +172,49 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           tags: [...tags],
         };
         node.update({metadata});
+        // origination check
+        let fromHere = id => id.startsWith(arc.id);
+        let changedHere = data => data.length ? data.some(datum => fromHere(datum.id)) : fromHere(data.id);
         // watch the db
         node = node.child('values');
         let off = this._watchView(node, view, data => {
-          // only store if change did not originate here
-          if (!data.id.startsWith(arc.id)) {
-            ArcStore.log('import view data from db', data);
-            view.store ? view.store(data) : view.set(data);
+          if (!data || (!data.length && !data.rawData)) {
+          } else {
+            // only store if change DID NOT originate here
+            if (!changedHere(data)) {
+              ArcStore.log('REMOTE change detected, updating local', data);
+              if (data.length) {
+                // TODO(sjmiles): this doesn't feel right, it's likely ineffecient, but also we are
+                // proliferating unique entity instances that are really just clones
+                view.toList().forEach(v => view.remove(v.id));
+                data.forEach(d => view.store(d));
+              } else {
+                view.set(data);
+              }
+            }
           }
         });
         // watch the view
-        view.on('change', change => {
-          // only store if change originated here
-          if (change.data && change.data.id.startsWith(arc.id)) {
-            ArcStore.log('view changed', view, change);
+        view.on('change', delta => {
+          ArcStore.log('TRIGGER[local-view]: view:', delta);
+          // only store if change DID originate here
+          let change = delta.add || delta.remove || delta.data;
+          if (changedHere(change)) {
+            ArcStore.log('LOCAL change detected, updating remote', view, change);
             node.set(this._getViewData(view));
           }
         }, this);
         return off;
       }
+    }
+    _watchView(node, view, cb) {
+      ArcStore.log('watching REMOTE view', node.toString());
+      let handle = node.on('value', snapshot => {
+        let data = snapshot.val();
+        ArcStore.log('TRIGGER[remote-fb]: view', String(node), data);
+        cb(data);
+      });
+      return () => node.off('value', handle);
     }
     _getViewId(tags, view) {
       let viewid = view.type.toString().replace(/ /g, '-').replace(/[\[\]]/g, '!');
@@ -205,17 +236,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       ArcStore.log('view data from Arc', view, data);
       return data;
-    }
-    _watchView(node, view, cb) {
-      ArcStore.log('watching view', node.toString());
-      let handle = node.on('value', snapshot => {
-        let data = snapshot.val();
-        ArcStore.log('view watch triggered', String(node), data);
-        if (data && data.rawData) {
-          cb(data);
-        }
-      });
-      return () => node.off('value', handle);
     }
   }
   ArcStore.module = document.currentImport;

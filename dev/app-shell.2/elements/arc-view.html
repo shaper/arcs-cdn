@@ -11,24 +11,24 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   class ArcView extends XenBase {
     static get observedAttributes() { return ['arc', 'options', 'data']; }
     _update(props, state, lastProps) {
+      let lastData = lastProps.data;
       let {arc, options, data} = props;
       if (arc && !state.view) {
         if (!state.manifest && options && options.schemas) {
           Arcs.Manifest.load(options.schemas, arc.loader).then(manifest => this._setState({manifest}));
         }
         if (state.manifest && options) {
-          state.view = this._createView(arc, state.manifest, options, data);
+          state.view = this._createView(arc, state.manifest, options);
         }
-        if (state.view) {
-          //this._fire('view', state.view);
-        }
-      } else if (state.view && data != lastProps.data) {
+        lastData = null;
+      }
+      if (state.view && data != lastData) {
         // (re)populate
         this._updateView(state.view, data, arc);
-        this._fire('view', state.view);
+        //this._fire('view', state.view);
       }
     }
-    _createView(arc, manifest, {name, tags, type}, data) {
+    _createView(arc, manifest, {name, tags, type}) {
       let viewOf = false;
       if (type[0] == '[') {
         viewOf = true;
@@ -41,25 +41,23 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       //let view = manifest.newView(type, name, arc.generateID(), ['#identities']);
       // arc-view, suitable for `use`, `?`
       let view = arc.createView(typeOf, name, arc.generateID(), tags);
-      // populate
-      if (data) {
-        this._updateView(view, data, arc);
-      }
       // observe view
       view.on('change', change => {
         //ArcView.log('arcsView change detected', change);
+        this._fire('view', view);
       }, {});
+      ArcView.log('created view', name, tags);
       return view;
     }
     _updateView(view, data, arc) {
-      ArcView.log(`updateView: [${view.name}]`, data);
+      //ArcView.log(`updateView: [${view.name}]`, data);
       if (view.toList) {
         view.toList().forEach(entity => {
           view.remove(entity.id);
         });
-        data.forEach(datum => {
-          view.store({id: arc.generateID(), rawData: datum});
-        });
+        for (let key in data) {
+          view.store({id: arc.generateID(), rawData: data[key]});
+        }
       } else {
         view.set({id: arc.generateID(), rawData: data});
       }

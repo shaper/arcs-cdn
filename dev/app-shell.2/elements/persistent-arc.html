@@ -1,0 +1,76 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<script>
+(scope => {
+  class PersistentArc extends XenBase {
+    static get observedAttributes() { return ['key','metadata','description']; }
+    get _db() {
+      return db.child(`arcs`);
+    }
+    _update(props, state, lastProps) {
+      if (props.key === '*' && lastProps.key != props.key) {
+        this._createKey();
+      }
+      if (props.key && props.key !== '*') {
+        if (props.metadata && props.metadata !== lastProps.metadata) { //state.metadata) {
+          let node = this._db.child(props.key);
+          PersistentArc.log('updating data for', String(node), props.metadata);
+          node.update(props.metadata);
+        }
+        //if (props.description) {
+        //  this._db.child(props.key).update({description: props.description});
+        //}
+        if (props.key !== lastProps.key) {
+          this._watchKey(props.key);
+        }
+      }
+    }
+    _createKey() {
+      let icons = ['settings','movie','new_releases','high_quality','room_service','casino','child_care','spa','kitchen'];
+      let colors = ['darkred','darkblue','darkgreen','darkorange','black'];
+      let data = {
+        description: Arcs.utils.randomName(),
+        icon: icons[Math.floor(Math.random()*icons.length)],
+        color: colors[Math.floor(Math.random()*colors.length)]
+      };
+      let key = this._db.push(data).key;
+      this._setState({key});
+      PersistentArc.log('createKey', key);
+      this._fire('key', key);
+    }
+    async _watchKey(key) {
+      this._unwatch();
+      let node = this._db.child(key);
+      PersistentArc.log('watching', String(node));
+      this._watch(node);
+    }
+    _remoteChanged(snap) {
+      let metadata = snap.val();
+      this._setState({metadata});
+      PersistentArc.log('remoteChanged', metadata);
+      this._fire('metadata', metadata);
+    }
+    _watch(node) {
+      let watch = node.on('value', this._remoteChanged.bind(this));
+      this._off = () => node.off('value', watch);
+    }
+    _unwatch() {
+      if (this._off) {
+        this._off();
+        this._off = null;
+      }
+    }
+  }
+  PersistentArc.module = document.currentImport;
+  PersistentArc.log = XenBase.logFactory('PersistentArc', '#a30000');
+  customElements.define('persistent-arc', PersistentArc);
+})(this);
+</script>

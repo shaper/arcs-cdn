@@ -71,9 +71,9 @@ let XenElement = Base => class extends Base {
   }
   _didMount() {
   }
-  _fire(eventName, detail) {
+  _fire(eventName, detail, node) {
     let event = new CustomEvent(eventName, {detail: detail});
-    this.dispatchEvent(event);
+    (node || this).dispatchEvent(event);
     return event.detail;
   }
 }

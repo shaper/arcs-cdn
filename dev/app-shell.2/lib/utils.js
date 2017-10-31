@@ -87,9 +87,19 @@ let utils = {
     let combinedSuggestion = Arcs.Description.getSuggestion(arc._activeRecipe, arc, null);
     if (combinedSuggestion) {
       let tags = Object.keys(arc._tags).filter(t => ['#nosync','#arcmetadata','#identity','#identities'].indexOf(t) < 0);
-      return `${tags.join(", ")}${tags.length ? ' - ' : ''}${combinedSuggestion}`;
+      return `${combinedSuggestion}${tags.length ? `(${tags.join(", ")})` : ''}`;
     }
     return '';
+  },
+  removeUndefined(object) {
+    return JSON.parse(JSON.stringify(object));
+  },
+  undefinedToNull(object) {
+    for (var n in object) {
+      if (object[n] === undefined) {
+        object[n] = null;
+      }
+    }
   }
 };
 

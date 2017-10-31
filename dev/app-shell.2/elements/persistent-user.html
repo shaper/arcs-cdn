@@ -1,0 +1,172 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<script>
+(scope => {
+  class PersistentUser extends XenBase {
+    static get observedAttributes() { return ['id','key','user']; }
+    _update(props, state, lastProps) {
+      // if our state user is stale, discard it
+      if (state.user && !props.user) {
+        state.user = null;
+      }
+      // when given a novel user record, store it into the database
+      if (props.user && props.user !== state.user && props.user !== lastProps.user) {
+        this._userdb.set(Arcs.utils.removeUndefined(props.user));
+      }
+      // if we have a novel id and aren't already waiting, try to acquire user data from the database
+      if (props.id && (!state.user || state.id !== props.id) && !state.connecting) {
+        state.id = props.id;
+        state.connecting = true;
+        this._watchUser(state.id);
+      }
+      // if we have received a user from the database, then...
+      if (state.user && state.connecting) {
+        // we are done connecting
+        state.connecting = false;
+        // if we have acquired a user, but the data is stale, then...
+        if (state.user.id !== props.id) {
+          // discard the user
+          state.user = null;
+        }
+        // disable old watches, enable fresh ones as needed
+        this._watchVisitedArcs(state.user);
+      }
+      // if we have a fresh (current Arc) key, store it for later processing
+      if (props.key !== lastProps.key) {
+        state.key = props.key;
+      }
+      // if we have a key to process and a user, then...
+      if (state.key && state.user) {
+        this._watchProfileViews(state.user, state.key);
+        // record that the user touched this arc
+        this._userdb.child(`arcs/${state.key}`).update({
+          touched: firebase.database.ServerValue.TIMESTAMP
+        });
+        // done processing key
+        state.key = '';
+      }
+      // always upstream user
+      this._fire('user', state.user);
+    }
+    get _usersdb() {
+      return db.child('users');
+    }
+    get _userdb() {
+      return this._usersdb.child(this._state.user.id);
+    }
+    async _watchUser(id) {
+      this._unwatch();
+      let node = this._usersdb.child(id);
+      let user = (await node.once('value')).val();
+      if (user === null) {
+        user = {};
+      }
+      if (!user.launcherKey) {
+        user.launcherKey = this._createArcKey();
+      }
+      user.id = id;
+      user.name = 'Anonymous';
+      node.set(Arcs.utils.removeUndefined(user));
+      if (!user.profiles) {
+        node.child('profiles').push(this._createArcKey())
+      }
+      PersistentUser.log('watching', String(node));
+      this._watch(node);
+      //this._fire('user', user);
+      this._setState({user});
+      PersistentUser.log(id, user);
+    }
+    _watch(node) {
+      let watch = node.on('value', this._remoteUserChanged.bind(this));
+      this._off = () => node.off('value', watch);
+    }
+    _unwatch() {
+      if (this._off) {
+        this._off();
+        this._off = null;
+      }
+    }
+    _remoteUserChanged(snap) {
+      let user = snap.val();
+      //this._fire('user', user);
+      this._setState({user})
+      PersistentUser.log('remoteUserChanged', user);
+    }
+    get _arcsdb() {
+      return db.child(`arcs`);
+    }
+    _createArcKey() {
+      return this._arcsdb.push({}).key;
+    }
+    //
+    async _watchVisitedArcs(user) {
+      // TODO(sjmiles): right now this information is used exclusively by the launcher, maybe
+      // we only set this up conditionally?
+      let nodes, onChange;
+      if (user && user.arcs) {
+        nodes = Object.keys(user.arcs).map(key => this._arcsdb.child(key));
+        PersistentUser.log(`watching ${nodes.length} arc(s) on user's behalf`);
+        // user.arcs provides user data and arc keys, combine user data with arc data from the keys
+        let arcData = Object.assign(Object.create(null), user.arcs);
+        onChange = snap => {
+          arcData[snap.key] = snap.val();
+          this._fire('arcs', arcData);
+        }
+      }
+      this._watchGroup('visitedArcsGroup', nodes, onChange);
+    }
+    async _watchFriendsShareViews(user, currentKey) {
+      if (user.friends) {
+        // take all friend keys
+        let nodes = Object.keys(user.profiles)
+          // convert keys into database nodes
+          .map(key => this._usersdb.child(key))
+          ;
+        PersistentUser.log(`watching ${nodes.length} shared arc(s)`);
+        this._watchGroup('sharedViewsGroup', nodes, snap => {
+          PersistentUser.log('DB->profileView::data', snap.val());
+        });
+      }
+    }
+    async _watchProfileViews(user, currentKey) {
+      if (user.profiles) {
+        // take all profile arc keys
+        let nodes = Object.keys(user.profiles)
+          // remove the current arc key (if needed)
+          .filter(key => key != currentKey)
+          // convert keys into database nodes
+          .map(key => this._arcsdb.child(key))
+          ;
+        PersistentUser.log(`watching ${nodes.length} profile arc(s)`);
+        this._watchGroup('profileViewsGroup', nodes, snap => {
+          PersistentUser.log('DB->profileView::data', snap.val());
+        });
+      }
+    }
+    _watchGroup(name, nodes, cb) {
+      if (this._state[name]) {
+        this._state[name]();
+      }
+      let off = null;
+      if (nodes) {
+        let offs = nodes.map(node => {
+          let off = node.on('value', cb);
+          return () => node.off('value', off);
+        });
+        off = () => offs.forEach(off => off());
+      }
+      this._state[name] = off;
+    }
+  }
+  PersistentUser.module = document.currentImport;
+  PersistentUser.log = XenBase.logFactory('PersistentUser', '#65499c');
+  customElements.define('persistent-user', PersistentUser);
+})(this);
+</script>

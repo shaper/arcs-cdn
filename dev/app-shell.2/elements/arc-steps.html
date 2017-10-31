@@ -8,11 +8,8 @@ Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 -->
 <script>
-  class ArcMetadata extends XenBase {
+  class ArcSteps extends XenBase {
     static get observedAttributes() { return ['plans','plan','steps','step']; }
-    constructor() {
-      super();
-    }
     _getInitialState() {
       return {
         steps: [],
@@ -21,7 +18,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _update(props, state, lastProps) {
       if (props.plans && props.plan !== lastProps.plan) {
-        ArcMetadata.log('update:', 'adding step');
+        ArcSteps.log('update:', 'adding step');
         this._addStep(props.plan, props.plans.generations, state.steps, state.applied);
       }
       if (props.steps) {
@@ -31,19 +28,17 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._providePlanStep(state.steps, props.plans, state.applied);
       }
       if (props.step) {
-        ArcMetadata.log('update:', 'consumed step');
+        ArcSteps.log('update:', 'consumed step');
         state.applied[props.step.hash] = true;
       }
     }
     _addStep(plan, generations, steps, applied) {
       let step = this._createStep(plan, generations);
-      if (step) {
-        if (!steps.find(s => s.hash === step.hash)) {
-          ArcMetadata.log("createStep", step);
-          steps.push(step);
-          applied[step.hash] = true;
-          this._fire('steps', steps);
-        }
+      if (step && !steps.find(s => s.hash === step.hash)) {
+        ArcSteps.log("createStep", step);
+        steps.push(step);
+        applied[step.hash] = true;
+        this._fire('steps', steps);
       }
       return this._state.steps;
     }
@@ -52,23 +47,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       for (let step of candidates) {
         let planStep = this._findPlanForStep(step, plans);
         if (planStep) {
-          ArcMetadata.log('found a suggestion matching a step:', planStep);
+          ArcSteps.log('found a suggestion matching a step:', planStep);
           this._state.applied[step.hash] = true;
           this._fire('step', planStep)
           return;
         }
       }
-      /*
-      let step = steps.find(s => !applied[s.hash]);
-      if (step) {
-        let planStep = this._findPlanForStep(step, plans);
-        if (planStep) {
-          ArcMetadata.log('found a suggestion matching a step:', planStep);
-          this._state.applied[step.hash] = true;
-          this._fire('step', planStep)
-        }
-      }
-      */
     }
     _findPlanForStep(step, plans) {
       for (let plan of plans) {
@@ -109,7 +93,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         generation => last_generation = generation.find(member => member.result == plan)
       );
       if (!last_generation) {
-        ArcMetadata.log("no originating generation found for", plan);
+        ArcSteps.log("no originating generation found for", plan);
       } else {
         // Walk derivation tree up to root. All paths will lead to the same root,
         // hence we can always take the first branch.
@@ -123,7 +107,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     findStep(plan, generations) {
       let step = this._createOriginatingStep(plan, generations);
       if (!step) {
-        ArcMetadata.warn("can't find first generation of", plan, "in", generations);
+        ArcSteps.warn("can't find first generation of", plan, "in", generations);
       } else {
         // TODO: Allow re-applying same step unless its on the root slot.
         // Will make sense once verbs, etc. work and different slots, etc.
@@ -132,22 +116,16 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           let matchingStep = this._steps.find(s => s.hash == step.hash && s.mappedViews == step.mappedViews);
           if (matchingStep) {
             return matchingStep;
-            /*
-            ArcMetadata.log("Auto applying step: ", matchingStep); //, suggestion);
-            this._appliedSteps[matchingStep.hash] = true;
-            //await this._shell.applySuggestion(suggestion.plan);
-            return true;
-            */
           } else {
             let nearMiss = this._steps.find(s => s.hash == step.hash);
-            nearMiss && ArcMetadata.log("Almost auto-applied step: ", nearMiss);
+            nearMiss && ArcSteps.log("Almost auto-applied step: ", nearMiss);
           }
         }
       }
     }
   }
-  ArcMetadata.module = document.currentImport;
-  ArcMetadata.log = XenBase.logFactory('ArcMetadata', '#7b5e57');
-  ArcMetadata.warn = XenBase.logFactory('ArcMetadata', '#7b5e57', 'warn');
-  customElements.define('arc-metadata', ArcMetadata);
+  ArcSteps.module = document.currentImport;
+  ArcSteps.log = XenBase.logFactory('ArcSteps', '#7b5e57');
+  ArcSteps.warn = XenBase.logFactory('ArcSteps', '#7b5e57', 'warn');
+  customElements.define('arc-steps', ArcSteps);
 </script>

@@ -1,0 +1,63 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<script>
+  class RemoteViews extends XenBase {
+    static get observedAttributes() { return ['arc', 'remotekey']; }
+    get _db() {
+      return db;
+    }
+    _update(props, state, lastProps) {
+      if (props.remotekey && lastProps.remotekey !== props.remotekey) {
+        state.needsWatch = true;
+      }
+      if (props.arc && state.needsWatch) {
+        state.needsWatch = false;
+        this._watchViews(props.remotekey, props.arc);
+      }
+    }
+    _watchViews(key, arc) {
+      let node = this._db.child(`arcs/${key}/views`);
+      this._off && this._off();
+      let handle = node.on('value', this._arcData.bind(this, arc));
+      this._off = () => node.off('value', handle);
+    }
+    _arcData(arc, snap) {
+      let views = snap.val();
+      let arcKey = '-key';
+      //RemoteViews.log('(incoming)', snap.key, views);
+      if (views) {
+        Object.keys(views).forEach(key => {
+          let remote = views[key];
+          let meta = remote.metadata;
+          // construct type object
+          let type = new Arcs.Type(meta.type.tag, meta.type.data);
+          //RemoteViews.log('type', type);
+          // construct id
+          let id = this._getContextViewId(type, meta.tags, arcKey);
+          // find or create a view in the arc context
+          //let view = arc.context.newView(type, meta.name, id, meta.tags);
+          //RemoteViews.log('created view', id, view);
+          RemoteViews.log('ready with view', id);
+        });
+      }
+    }
+    // Returns the context view id for the given params.
+    _getContextViewId(type, tags, amkey, isProfile) {
+      return ''
+        + `shared:${isProfile ? `PROFILE/` : `AMKEY${amkey}/`}`
+        + `${type.toString().replace(' ', '-')}/`
+        + ((tags && [...tags].length) ? `${[...tags].sort().join('-').replace(/#/g, '')}/` : '')
+        ;
+    }
+  }
+  RemoteViews.module = document.currentImport;
+  RemoteViews.log = XenBase.logFactory('RemoteViews', '#aa00c7');
+  customElements.define('remote-views', RemoteViews);
+</script>

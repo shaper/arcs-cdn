@@ -4,14 +4,14 @@
       display: inline-flex;
       font-size: 24px;
       font-style: normal;
+      font-family: 'Material Icons';
+      width: 1em;
       cursor: pointer;
       user-select: none;
     }
     span {
       display: inline-block;
-      font-size: inherit;
-      font-style: inherit;
-      font-family: 'Material Icons';
+      font: inherit;
       line-height: 1;
       -webkit-font-feature-settings: 'liga';
       -webkit-font-smoothing: antialiased;
@@ -21,7 +21,7 @@
 
 <script>
   class ToggleButton extends XenBase {
-    static get observedAttributes() { return ['icons']; }
+    static get observedAttributes() { return ['icons','state']; }
     _getInitialState() {
       return {
         state: 0,
@@ -29,6 +29,9 @@
       }
     }
     _willReceiveProps(props, state) {
+      if ('state' in props) {
+        state.state = props.state;
+      }
       state.icons = (props.icons || '').split(' ');
     }
     _render(props, state) {

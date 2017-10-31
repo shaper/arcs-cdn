@@ -13,8 +13,19 @@ class XenBase extends XenElement(XenState(HTMLElement)) {
   _stamp() {
     let template = this.template;
     if (template) {
-      this._dom = Xen.stamp(this.template).events(this).appendTo(this.host);
+      // TODO(sjmiles): can just do `events(this)` for default listener (`events(this)`), but we use a custom listener
+      // so we can append (props, state) to handler signature. All we are really altering is the delegation,
+      // not the listening, maybe there could be another customization point just for that. Perhaps the default
+      // listener could invoke a delegator if it exists, then fallback to original behavior.
+      this._dom = Xen.stamp(this.template).events(this._listener.bind(this)).appendTo(this.host);
     }
+  }
+  _listener(node, name, handler) {
+    node.addEventListener(name, e => {
+      if (this[handler]) {
+        return this[handler](e, e.detail, this._props, this._state);
+      }
+    });
   }
   _update(props, state) {
     let model = this._render(props, state);

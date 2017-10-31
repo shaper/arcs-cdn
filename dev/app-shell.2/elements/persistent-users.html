@@ -1,0 +1,76 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<link rel="import" href="remote-views.html">
+
+<script>
+(scope => {
+  class PersistentUsers extends XenBase {
+    static get observedAttributes() { return ['arc']; }
+    _update(props, state, lastProps) {
+      if (props.arc !== lastProps.arc) {
+        state.connected = false;
+      }
+      if (props.arc) {
+        if (!state.connected) {
+          this._connect(props.arc);
+        }
+        this._fire('users', state.users);
+      }
+    }
+    get _usersdb() {
+      return db.child('users');
+    }
+    async _connect(arc) {
+      this._state.connected = true;
+      if (this._off) {
+        this._off();
+        this._off = null;
+      }
+      let node = this._usersdb;
+      PersistentUsers.log('watching', String(node));
+      let watch = node.on('value', this._remoteChanged.bind(this, arc));
+      this._off = () => node.off('value', watch);
+    }
+    _remoteChanged(arc, snap) {
+      /*
+      let users = snap.val();
+      if (users === null) {
+        // should cause re-entry
+        snap.ref.push({name: 'Anonymous'});
+      } else {
+        Object.keys(users).forEach(k => users[k].id = k);
+        this._watchProfileData(users, arc);
+        this._setState({users})
+        PersistentUsers.log('remoteChanged', users);
+      }
+      */
+      let users = snap.val() || [];
+      Object.keys(users).forEach(k => users[k].id = k);
+      this._watchProfileData(users, arc);
+      this._setState({users})
+      PersistentUsers.log('remoteChanged', users);
+    }
+    _watchProfileData(users, arc) {
+      Object.keys(users).forEach(id => {
+        PersistentUsers.log(`connecting to ${id}'s remote profile`);
+        let user = users[id];
+        let keys = Object.keys(user.profiles || Object);
+        let remotes = keys.map(remotekey => {
+          // RemoteViews synchronizes views from `remotekey` into `arc`'s context
+          return Object.assign(new RemoteViews(), {arc, remotekey});
+        });
+      });
+    }
+  }
+  PersistentUsers.module = document.currentImport;
+  PersistentUsers.log = XenBase.logFactory('PersistentUsers', '#883997');
+  customElements.define('persistent-users', PersistentUsers);
+})(this);
+</script>

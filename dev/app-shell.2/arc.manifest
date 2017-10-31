@@ -7,6 +7,7 @@ import '../../../arc-stories/0.2/Identity/Identity.recipes'
 
 #import '../../../arc-stories/0.2/Messages/Messages.recipes'
 #import '../../../arc-stories/0.2/People/People.recipes'
+import '../../../arc-stories/0.2/Places/Places.recipes'
 
 #import '../../../arc-stories/0.2/PlaidAccounts/PlaidAccounts.recipes'
 #import '../../../arc-stories/0.2/Products/Products.recipes'

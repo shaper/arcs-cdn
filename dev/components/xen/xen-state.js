@@ -52,8 +52,8 @@ let StaterMixin = Base => class extends Base {
   }
   _async(fn) {
     // TODO(sjmiles): SystemJS throws unless `Promise` is `window.Promise`
-    return Promise.resolve().then(fn.bind(this));
-    //return setTimeout(fn.bind(this), 10);
+    //return Promise.resolve().then(fn.bind(this));
+    return setTimeout(fn.bind(this), 10);
   }
   _invalidate() {
     if (!this._validator) {
