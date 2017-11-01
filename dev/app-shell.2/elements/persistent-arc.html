@@ -7,7 +7,6 @@ The complete set of contributors may be found at http://polymer.github.io/CONTRI
 Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 -->
-
 <script>
 (scope => {
   class PersistentArc extends XenBase {
@@ -22,12 +21,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       if (props.key && props.key !== '*') {
         if (props.metadata && props.metadata !== lastProps.metadata) { //state.metadata) {
           let node = this._db.child(props.key);
-          PersistentArc.log('updating data for', String(node), props.metadata);
+          PersistentArc.log('WRITING (update) metadata for', String(node), props.metadata);
           node.update(props.metadata);
         }
-        //if (props.description) {
-        //  this._db.child(props.key).update({description: props.description});
-        //}
         if (props.key !== lastProps.key) {
           this._watchKey(props.key);
         }

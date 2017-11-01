@@ -10,24 +10,25 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
 (scope => {
   class PersistentUser extends XenBase {
-    static get observedAttributes() { return ['id','key','user']; }
-    _update(props, state, lastProps) {
-      // if our state user is stale, discard it
-      if (state.user && !props.user) {
+    static get observedAttributes() { return ['id','user','key','arc']; }
+    _update(props, state, lastProps, lastState) {
+      if (props.user && !props.id) {
+        // need a new user
         state.user = null;
+        this._createUser(props.user);
       }
-      // when given a novel user record, store it into the database
-      if (props.user && props.user !== state.user && props.user !== lastProps.user) {
-        this._userdb.set(Arcs.utils.removeUndefined(props.user));
+      // if we have an id, and props.user has mutated, write the mutations to the database
+      if (props.id && props.user && props.user !== state.user && props.user !== lastProps.user) {
+        PersistentUser.log('WRITING user (update)', props.user, state.user);
+        this._usersdb.child(props.user.id).set(props.user);
       }
       // if we have a novel id and aren't already waiting, try to acquire user data from the database
-      if (props.id && (!state.user || state.id !== props.id) && !state.connecting) {
-        state.id = props.id;
+      if (props.id && (!state.user || state.user.id !== props.id) && !state.connecting) {
         state.connecting = true;
-        this._watchUser(state.id);
+        this._watchUser(props.id);
       }
-      // if we have received a user from the database, then...
-      if (state.user && state.connecting) {
+      // if we were connecting, and have received a user from the database, then...
+      if (state.connecting && state.user) {
         // we are done connecting
         state.connecting = false;
         // if we have acquired a user, but the data is stale, then...
@@ -35,22 +36,24 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           // discard the user
           state.user = null;
         }
-        // disable old watches, enable fresh ones as needed
-        this._watchVisitedArcs(state.user);
       }
       // if we have a fresh (current Arc) key, store it for later processing
       if (props.key !== lastProps.key) {
         state.key = props.key;
       }
-      // if we have a key to process and a user, then...
-      if (state.key && state.user) {
-        this._watchProfileViews(state.user, state.key);
+      // if we have a key to process, a user, and an arc, then...
+      if (state.key && state.user && props.arc) {
+        this._watchProfileViews(state.user, state.key, props.arc);
         // record that the user touched this arc
         this._userdb.child(`arcs/${state.key}`).update({
           touched: firebase.database.ServerValue.TIMESTAMP
         });
         // done processing key
         state.key = '';
+      }
+      if (state.user !== lastState.user) {
+        // disable old watches, enable fresh ones as needed
+        this._watchVisitedArcs(state.user);
       }
       // always upstream user
       this._fire('user', state.user);
@@ -61,30 +64,40 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     get _userdb() {
       return this._usersdb.child(this._state.user.id);
     }
+    _createUser(user) {
+      user.id = this._usersdb.push().key;
+      PersistentUser.log('WRITING user (createUser)', user);
+      this._usersdb.child(user.id).set(user);
+      this._setState({user});
+    }
     async _watchUser(id) {
       this._unwatch();
       let node = this._usersdb.child(id);
       let user = (await node.once('value')).val();
-      if (user === null) {
-        user = {};
+      if (!user || !user.launcherKey || !user.id) {
+        if (user === null) {
+          user = {};
+        }
+        if (!user.launcherKey) {
+          user.launcherKey = this._createArcKey();
+        }
+        user.id = id;
+        PersistentUser.log('WRITING user (watchUser)', user);
+        node.set(Arcs.utils.removeUndefined(user));
       }
-      if (!user.launcherKey) {
-        user.launcherKey = this._createArcKey();
-      }
-      user.id = id;
-      user.name = 'Anonymous';
-      node.set(Arcs.utils.removeUndefined(user));
-      if (!user.profiles) {
-        node.child('profiles').push(this._createArcKey())
-      }
-      PersistentUser.log('watching', String(node));
-      this._watch(node);
-      //this._fire('user', user);
-      this._setState({user});
-      PersistentUser.log(id, user);
+      //if (!user.profiles) {
+      //  node.child('profiles').push(this._createArcKey())
+      //}
+      PersistentUser.log('watching user', user.name, String(node));
+      this._watch(node, this._remoteUserChanged.bind(this));
     }
-    _watch(node) {
-      let watch = node.on('value', this._remoteUserChanged.bind(this));
+    _remoteUserChanged(snap) {
+      let user = snap.val();
+      PersistentUser.log('remoteUserChanged', user);
+      this._setState({user})
+    }
+    _watch(node, cb) {
+      let watch = node.on('value', cb);
       this._off = () => node.off('value', watch);
     }
     _unwatch() {
@@ -93,34 +106,53 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._off = null;
       }
     }
-    _remoteUserChanged(snap) {
-      let user = snap.val();
-      //this._fire('user', user);
-      this._setState({user})
-      PersistentUser.log('remoteUserChanged', user);
-    }
     get _arcsdb() {
       return db.child(`arcs`);
     }
     _createArcKey() {
       return this._arcsdb.push({}).key;
     }
-    //
+    // watching arcs
     async _watchVisitedArcs(user) {
       // TODO(sjmiles): right now this information is used exclusively by the launcher, maybe
       // we only set this up conditionally?
       let nodes, onChange;
       if (user && user.arcs) {
         nodes = Object.keys(user.arcs).map(key => this._arcsdb.child(key));
-        PersistentUser.log(`watching ${nodes.length} arc(s) on user's behalf`);
+        PersistentUser.log(`watching ${nodes.length} visited arc(s)`);
         // user.arcs provides user data and arc keys, combine user data with arc data from the keys
         let arcData = Object.assign(Object.create(null), user.arcs);
         onChange = snap => {
           arcData[snap.key] = snap.val();
           this._fire('arcs', arcData);
         }
+      } else {
+        this._fire('arcs', []);
       }
       this._watchGroup('visitedArcsGroup', nodes, onChange);
+    }
+    // watching views
+    async _watchProfileViews(user, currentKey, arc) {
+      let state = this._state;
+      if (state.remoteViews) {
+        state.remoteViews.forEach(rv => rv.removeEventListener('view', rv._memoListener));
+      }
+      // TODO(sjmiles): destroy old watch infrastructure here...
+      if (user.profiles) {
+        PersistentUser.log(`watchProfileViews`, user.profiles);
+        state.remoteViews = Object.keys(user.profiles).map(key => {
+          // TODO(sjmiles): how to make this instance go away?
+          let rv = Object.assign(new RemoteViews(), {arc, key, profiles: true});
+          rv._memoListener = rv.addEventListener('view', e => {
+            let view = e.detail;
+            PersistentUser.log(`watchProfileViews:view`, view);
+            if (view.id == 'PROFILE/[Person]/friends/') {
+              PersistentUser.log(`found friends view!`);
+            }
+          });
+          return rv;
+        });
+      }
     }
     async _watchFriendsShareViews(user, currentKey) {
       if (user.friends) {
@@ -131,21 +163,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           ;
         PersistentUser.log(`watching ${nodes.length} shared arc(s)`);
         this._watchGroup('sharedViewsGroup', nodes, snap => {
-          PersistentUser.log('DB->profileView::data', snap.val());
-        });
-      }
-    }
-    async _watchProfileViews(user, currentKey) {
-      if (user.profiles) {
-        // take all profile arc keys
-        let nodes = Object.keys(user.profiles)
-          // remove the current arc key (if needed)
-          .filter(key => key != currentKey)
-          // convert keys into database nodes
-          .map(key => this._arcsdb.child(key))
-          ;
-        PersistentUser.log(`watching ${nodes.length} profile arc(s)`);
-        this._watchGroup('profileViewsGroup', nodes, snap => {
           PersistentUser.log('DB->profileView::data', snap.val());
         });
       }

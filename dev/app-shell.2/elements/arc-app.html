@@ -65,12 +65,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     app-toolbar > select {
       padding: 2px 0;
       margin-right: 8px;
-      width: 128px;
+      width: 96px;
     }
     [arc-title] {
       flex: 1;
       min-height: 0.6em;
       padding-top: 0.1em;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     arc-footer {
       height: 40px;
@@ -97,15 +99,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <arc-auth on-auth="_onAuth"></arc-auth>
 
   <persistent-users arc="{{arc}}" on-users="_onUsers"></persistent-users>
-  <persistent-user id="{{userId}}" key="{{key}}" user="{{user}}" on-user="_onUser" on-arcs="_onUserArcs"></persistent-user>
+  <persistent-user id="{{userId}}" user="{{user}}" key="{{key}}" arc="{{arc}}" on-user="_onUser" on-arcs="_onUserArcs"></persistent-user>
   <persistent-arc description="{{description}}" key="{{key}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata"></persistent-arc>
   <persistent-views key="{{key}}" arc="{{arc}}"></persistent-views>
 
   <arc-config rootpath="{{cdnPath}}" on-config="_onConfig"></arc-config>
-
-<!--
-  <arc-store arc="{{arc}}" on-arcs="_onArcsList" key="{{key}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata" users="{{users}}" on-users="_onUsersList"></arc-store>
--->
 
   <arc-steps plans="{{plans}}" plan="{{plan}}" steps="{{steps}}" step="{{step}}" on-step="_onStep" on-steps="_onSteps"></arc-steps>
 
@@ -113,7 +111,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <arc-view arc="{{arc}}" data="{{identityViewData}}" options="{{identityViewOptions}}" on-view="_onIdentityView"></arc-view>
   <arc-view arc="{{arc}}" data="{{identitiesViewData}}" options="{{identitiesViewOptions}}" on-view="_onIdentitiesView"></arc-view>
 
-  <arc-host config="{{config}}" plans="{{plans}}" plan="{{plan}}" on-arc="_onArc" on-plans="_onPlans" on-applied="_onApplied">
+  <arc-host config="{{hostConfig}}" plans="{{plans}}" plan="{{plan}}" on-arc="_onArc" on-plans="_onPlans" on-applied="_onApplied">
     <div slotid="toproot"></div>
     <div slotid="root"></div>
   </arc-host>
@@ -166,58 +164,68 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       this._meta = this.host.querySelector('arc-metadata');
       this._store = this.host.querySelector('arc-store');
     }
-    _update(props, state) {
-      if (!state.identityViewData && state.auth && state.arc) {
-        state.identityViewData = this._synthesizeIdentityViewData(state.arc, state.userName);
+    _update(props, state, lastProps, lastState) {
+      if (state.arc && state.user && state.user !== lastState.user) {
+        state.identityViewData = this._synthesizeIdentityViewData(state.arc, state.user);
       }
       if (!state.plan && state.plans && state.plans.length && state.config.launcher) {
         state.plan = state.plans[0].plan;
       }
       if (state.user) {
-        state.id = state.user.id;
+        state.userId = state.user.id;
         state.userName = state.user.name;
       }
       if (state.key) {
         Arcs.utils.setUrlParam('arc', state.key);
       }
-      if (state.user && state.key) {
-        state.profileState = state.user.profiles[state.key] ? 1 : 0;
+      if (state.key && state.user) {
+        let profiles = state.user.profiles;
+        state.profileState = profiles ? (profiles[state.key] ? 1 : 0) : 0;
       }
       super._update(props, state);
     }
+    _synthesizeIdentityViewData(arc, user) {
+      return {
+        id: user.id
+      };
+    }
     _render(props, state) {
-      if (state.users) {
-        state.usersOptions = {
-          $template: 'users-options',
-          models: this._renderUserOptionModels(state.users, state.user)
-        }
-      }
+      state.usersOptions = {
+        $template: 'users-options',
+        models: this._renderUserOptionModels(state.users, state.user)
+      };
       if (state.metadata) {
         state.description = state.metadata.description;
         state.steps =  state.metadata.steps;
       }
+      // Xen will union member Objects when an Array is returned
       return [
         state.icons,
-        state.auth ? state : null
+        state.auth ? state : null,
+        {
+          hostConfig: state.user ? state.config : null
+        }
       ];
     }
     _renderUserOptionModels(users, user) {
-      let selectedId = user ? user.id : '';
-      return [
+      let models = [
         {user: '(none)'},
-        {user: '(Create User)'}
-      ].concat(
-        Object.keys(users).map(id => {
+        {user: '(New)'}
+      ];
+      if (users) {
+        let selectedId = user ? user.id : '';
+        models = models.concat(Object.keys(users).map(id => {
           return {
             value: id,
             user: users[id].name,
             selected: id == selectedId
           }
-        })
-      );
+        }));
+      }
+      return models;
     }
     _hasViews(state) {
-      return Boolean(state.view && state.identityView && state.identitiesView);
+      return Boolean(state.arcsView && state.identityView && state.identitiesView);
     }
     _onConfig(e, config) {
       let key = config.key || '';
@@ -230,7 +238,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       if (config.key === 'launcher') {
         config.soloPath = config.soloPath || 'launcher.manifest';
         config.launcher = true;
-        //this._setState({description: 'Arc Launcher'});
         key = '';
       }
       this._setState({config, key, userId: config.user});
@@ -244,37 +251,33 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
     }
     _onUserSelected(e) {
-      let id;
+      let user, userId;
       let selected = e.currentTarget.selectedIndex;
       switch (selected) {
         case 0:
           break;
         case 1:
-          id = db.child('users').push().key;
+          ArcApp.log('mutated user object (onUserSelected)', user);
+          // returns String 'null' (sheesh) on cancel
+          let name = prompt('User name?', 'User');
+          if (name !== "null") {
+            user = {name}
+          }
           break;
         default:
-          id = e.currentTarget.value
+          userId = e.currentTarget.value
           break;
       }
-      ArcApp.log('switching user', id);
-      this._setState({user: null, userId: id});
+      ArcApp.log('switching user', user, userId);
+      this._setState({user, userId});
     }
     _onUser(e, user, props, state) {
-      if (user && (!user.name || user.name === 'Anonymous')) {
-        // returns String 'null' (sheesh) on cancel
-        let name = prompt('User name?', 'User');
-        if (name !== "null") {
-          // `user` is immutable, must copy-on-write
-          user = Object.assign(Object.create(null), user);
-          user.name = name;
-        }
-      }
       // reference testing, remember to treat `user` as immutable
       if (state.user != user) {
-        this._setState({user});
         if (user) {
           localStorage.setItem('currentUser', user.id);
         }
+        this._setState({user});
       }
     }
     _onUserArcs(e, userArcs) {
@@ -301,22 +304,23 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       window.arc = arc;
       this._setState({arc});
     }
-    _onArcsView(e, view) {
-      if (this._state.view !== view) {
-        ArcApp.log('ArcsView', view);
-        this._setState({view, plans: null});
-      }
+    _onArcsView(e, arcsView) {
+      this._installSyntheticView('arcsView', arcsView)
     }
     _onIdentityView(e, identityView) {
-      if (this._state.identityView !== identityView) {
-        ArcApp.log('IdentityView', identityView);
-        this._setState({identityView, plans: null});
-      }
+      this._installSyntheticView('identityView', identityView)
     }
     _onIdentitiesView(e, identitiesView) {
-      if (this._state.identitiesView !== identitiesView) {
-        ArcApp.log('IdentitiesView', identitiesView);
-        this._setState({identitiesView, plans: null});
+      this._installSyntheticView('identitiesView', identitiesView)
+    }
+    _installSyntheticView(name, view) {
+      if (this._state[name] !== view) {
+        ArcApp.log(name, view);
+        let state = {
+          plans: null
+        };
+        state[name] = view;
+        this._setState(state);
       }
     }
     _onMetadata(e, metadata) {
@@ -334,10 +338,10 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         } else {
           delete user.profiles[key];
         }
-        ArcApp.log('mutate user/users list', user, users);
+        ArcApp.log('mutating user object (onProfileState)', user);
         this._setState({
-          user: Object.assign(Object.create(null), user),
-          users: Object.assign(Object.create(null), users)
+          user: Object.assign(Object.create(null), user)//,
+          //users: Object.assign(Object.create(null), users)
         });
       }
     }
@@ -348,7 +352,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       if (plans !== this._state.plans) {
         this._setState({plans});
         this._fire('generations', plans.generations, document);
-        //document.dispatchEvent(new CustomEvent('generations', {detail: plans.generations}));
       }
     }
     _onStep(e, step) {
@@ -365,13 +368,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       if (description && description !== state.description) {
         this._updateMetadata({description});
         this._setState({description});
-      } else {
-        // TODO(sjmiles): reason?
-        this._invalidate();
       }
-    }
-    _synthesizeIdentityViewData(arc, user) {
-      return {id: arc.generateID(), rawData: user};
+      // must re-plan
+      this._setState({plans: null});
     }
     _updateMetadata(data) {
       let {metadata} = this._state;

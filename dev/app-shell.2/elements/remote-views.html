@@ -9,49 +9,50 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 -->
 <script>
   class RemoteViews extends XenBase {
-    static get observedAttributes() { return ['arc', 'remotekey']; }
+    static get observedAttributes() { return ['arc', 'key', 'profiles']; }
     get _db() {
       return db;
     }
     _update(props, state, lastProps) {
-      if (props.remotekey && lastProps.remotekey !== props.remotekey) {
+      if (props.key && lastProps.key !== props.key) {
         state.needsWatch = true;
       }
       if (props.arc && state.needsWatch) {
         state.needsWatch = false;
-        this._watchViews(props.remotekey, props.arc);
+        this._watchViews(props.key, props.arc, props.profiles);
       }
     }
-    _watchViews(key, arc) {
+    _watchViews(key, arc, areProfiles) {
       let node = this._db.child(`arcs/${key}/views`);
       this._off && this._off();
-      let handle = node.on('value', this._arcData.bind(this, arc));
+      let handle = node.on('value', this._arcData.bind(this, arc, areProfiles));
       this._off = () => node.off('value', handle);
     }
-    _arcData(arc, snap) {
+    _arcData(arc, areProfiles, snap) {
       let views = snap.val();
       let arcKey = '-key';
-      //RemoteViews.log('(incoming)', snap.key, views);
+      RemoteViews.log('(incoming)', snap.key, views);
       if (views) {
         Object.keys(views).forEach(key => {
           let remote = views[key];
           let meta = remote.metadata;
+          //RemoteViews.log('creating type from', meta);
           // construct type object
           let type = new Arcs.Type(meta.type.tag, meta.type.data);
           //RemoteViews.log('type', type);
           // construct id
-          let id = this._getContextViewId(type, meta.tags, arcKey);
+          let id = this._getContextViewId(type, meta.tags, arcKey, areProfiles);
           // find or create a view in the arc context
-          //let view = arc.context.newView(type, meta.name, id, meta.tags);
-          //RemoteViews.log('created view', id, view);
-          RemoteViews.log('ready with view', id);
+          let view = arc.context.newView(type, meta.name, id, meta.tags);
+          RemoteViews.log('created view', id, view);
+          this._fire('view', view);
         });
       }
     }
     // Returns the context view id for the given params.
     _getContextViewId(type, tags, amkey, isProfile) {
       return ''
-        + `shared:${isProfile ? `PROFILE/` : `AMKEY${amkey}/`}`
+        + `${isProfile ? `PROFILE/` : `AMKEY${amkey}/`}`
         + `${type.toString().replace(' ', '-')}/`
         + ((tags && [...tags].length) ? `${[...tags].sort().join('-').replace(/#/g, '')}/` : '')
         ;

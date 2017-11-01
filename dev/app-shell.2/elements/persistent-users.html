@@ -53,7 +53,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       */
       let users = snap.val() || [];
       Object.keys(users).forEach(k => users[k].id = k);
-      this._watchProfileData(users, arc);
+      //this._watchProfileData(users, arc);
       this._setState({users})
       PersistentUsers.log('remoteChanged', users);
     }
