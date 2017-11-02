@@ -58,14 +58,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             // only store if change DID NOT originate here
             if (!changedHere(data)) {
               PersistentViews.log(`[${viewId}] REMOTE change, updating local`, data);
-              if (data.length) {
-                // TODO(sjmiles): this doesn't feel right, it's likely ineffecient, but also we are
-                // proliferating unique entity instances that are really just clones
-                view.toList().forEach(v => view.remove(v.id));
-                data.forEach(d => view.store(d));
-              } else {
-                view.set(Arcs.utils.removeUndefined(data));
-              }
+              Arcs.utils.setViewData(view, data);
             }
           }
         });
@@ -76,7 +69,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           let change = delta.add || delta.remove || delta.data;
           if (changedHere(change)) {
             PersistentViews.log(`[${viewId}] LOCAL change, updating remote`, view, change);
-            node.set(Arcs.utils.removeUndefined(this._getViewData(view)));
+            node.set(Arcs.utils.removeUndefined(Arcs.utils.getViewData(view)));
           }
         }, this);
         return off;
@@ -97,20 +90,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         viewid += '-' + [...tags][0].replace(/#/g, '');
       }
       return viewid;
-    }
-    _getViewData(view) {
-      let data;
-      if (view.toList) {
-        data = view.toList();
-      } else {
-        let rawData = view._stored && view._stored.rawData || {};
-        data = {
-          id: view.id,
-          rawData
-        };
-      }
-      PersistentViews.log('view data from Arc', view, data);
-      return data;
     }
   }
   PersistentViews.module = document.currentImport;

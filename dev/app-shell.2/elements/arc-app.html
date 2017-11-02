@@ -13,17 +13,20 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="../../components/explorer-hotkey.html">
 <link rel="import" href="../../components/corellia-xen/cx-input.html">
 
-<link rel="import" href="arc-config.html">
+<link rel="import" href="arc-store.html">
 <link rel="import" href="arc-auth.html">
+<link rel="import" href="arc-config.html">
 <link rel="import" href="arc-view.html">
 <link rel="import" href="arc-host.html">
 <link rel="import" href="arc-footer.html">
 <link rel="import" href="arc-steps.html">
-<link rel="import" href="arc-store.html">
 <link rel="import" href="persistent-users.html">
 <link rel="import" href="persistent-user.html">
+<link rel="import" href="remote-visited-arcs.html">
 <link rel="import" href="persistent-arc.html">
 <link rel="import" href="persistent-views.html">
+<link rel="import" href="remote-shared-views.html">
+<link rel="import" href="remote-profile-views.html">
 
 <template>
   <style>
@@ -53,26 +56,34 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       align-items: center;
       white-space: nowrap;
       padding-left: 12px;
-      /*padding: 0 8px;*/
       box-sizing: border-box;
       background-color: whitesmoke;
       z-index: 1000;
       transform: translate(0,0,0); /* makes it a layer so other layers scroll underneath, is there a better way? */
     }
-    app-toolbar > * {
+    app-toolbar > *, app-toolbar > [buttons] > * {
       padding-right: 12px;
+    }
+    app-toolbar > [arc-title] {
+      flex: 1;
+      min-height: 0.6em;
+      padding-top: 0.1em;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     app-toolbar > select {
       padding: 2px 0;
       margin-right: 8px;
       width: 96px;
     }
-    [arc-title] {
-      flex: 1;
-      min-height: 0.6em;
-      padding-top: 0.1em;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    [arc-app][launcher] app-toolbar > [buttons] {
+      display: none;
+    }
+    app-toolbar > [buttons] {
+      display: none;
+      white-space: nowrap;
+      align-items: center;
+      padding-right: 0;
     }
     arc-footer {
       height: 40px;
@@ -83,41 +94,44 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <app-toolbar>
       <i style="color: #9c27b0;" on-click="_onNavClick">donut_small</i>
       <span arc-title style%="{{titleStatic}}" on-click="_onStartEditingTitle" unsafe-html="{{description}}"></span>
-      <i on-click="_onNewClick">note_add</i>
 
       <select on-change="_onUserSelected">{{usersOptions}}</select>
       <template users-options>
         <option value="{{value}}" selected="{{selected}}">{{user}}</option>
       </template>
 
-      <toggle-button state="{{profileState}}" on-state="_onProfileState" icons="person_outline person"></toggle-button>
-      <toggle-button state="{{sharingState}}" on-state="_onSharingState" icons="link supervisor_account"></toggle-button>
-      <toggle-button on-state="_onCastState" icons="cast cast_connected"></toggle-button>
+      <div buttons style%="{{toolbarButtonsStyle}}">
+        <toggle-button state="{{profileState}}" on-state="_onProfileState" icons="person_outline person"></toggle-button>
+        <toggle-button state="{{sharingState}}" on-state="_onSharingState" icons="link supervisor_account"></toggle-button>
+        <toggle-button on-state="_onCastState" icons="cast cast_connected"></toggle-button>
+        <i on-click="_onNewClick">note_add</i>
+      </div>
     </app-toolbar>
   </toolbar>
 
   <arc-auth on-auth="_onAuth"></arc-auth>
-
-  <persistent-users arc="{{arc}}" on-users="_onUsers"></persistent-users>
-  <persistent-user id="{{userId}}" user="{{user}}" key="{{key}}" arc="{{arc}}" on-user="_onUser" on-arcs="_onUserArcs"></persistent-user>
-  <persistent-arc description="{{description}}" key="{{key}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata"></persistent-arc>
-  <persistent-views key="{{key}}" arc="{{arc}}"></persistent-views>
-
   <arc-config rootpath="{{cdnPath}}" on-config="_onConfig"></arc-config>
 
-  <arc-steps plans="{{plans}}" plan="{{plan}}" steps="{{steps}}" step="{{step}}" on-step="_onStep" on-steps="_onSteps"></arc-steps>
+  <persistent-users on-users="_onUsers"></persistent-users>
+  <persistent-user id="{{userId}}" user="{{user}}" key="{{key}}" on-user="_onUser"></persistent-user>
+  <remote-visited-arcs user="{{user}}" arcs="{{visitedArcs}}" on-arcs="_onVisitedArcs"></remote-visited-arcs>
+
+  <persistent-arc key="{{suggestKey}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata"></persistent-arc>
+  <persistent-views arc="{{arc}}" key="{{key}}"></persistent-views>
+  <remote-profile-views arc="{{arc}}" user="{{user}}" on-friends="_onFriends"></remote-profile-views>
+  <remote-shared-views arc="{{arc}}" user="{{user}}" friends="{{friends}}"></remote-visited-arcs>
 
   <arc-view arc="{{arc}}" data="{{arcsViewData}}" options="{{arcsViewOptions}}" on-view="_onArcsView"></arc-view>
   <arc-view arc="{{arc}}" data="{{identityViewData}}" options="{{identityViewOptions}}" on-view="_onIdentityView"></arc-view>
-  <arc-view arc="{{arc}}" data="{{identitiesViewData}}" options="{{identitiesViewOptions}}" on-view="_onIdentitiesView"></arc-view>
+  <arc-view arc="{{arc}}" data="{{users}}" options="{{identitiesViewOptions}}" on-view="_onIdentitiesView"></arc-view>
 
   <arc-host config="{{hostConfig}}" plans="{{plans}}" plan="{{plan}}" on-arc="_onArc" on-plans="_onPlans" on-applied="_onApplied">
     <div slotid="toproot"></div>
     <div slotid="root"></div>
   </arc-host>
-
   <arc-footer suggestions="{{plans}}" on-suggest="_onSuggest"></arc-footer>
 
+  <arc-steps plans="{{plans}}" plan="{{plan}}" steps="{{steps}}" step="{{step}}" on-step="_onStep" on-steps="_onSteps"></arc-steps>
 </template>
 
 <script>
@@ -126,20 +140,13 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       // TODO(sjmiles): override shadow-root generation so that
       // old-timey systems (e.g. TradingView widgets) can find
       // various bits in `document` when used in Particles.
-      // Using light-dom opens up style leakage concerns.
+      // Note that using light-dom creates style leakage concerns.
       return this;
     }
     _getInitialState() {
       let cdnPath = ArcApp.module.URL.split('/').slice(0, -3).join('/');
       return {
-        userName: 'Scott',
-        needPlans: true,
         cdnPath,
-        icons: {
-          profileStateIcon: `person_outline`,
-          sharedStateIcon: `link`,
-          castIcon: `cast`
-        },
         arcsViewOptions: {
           schemas: `${cdnPath}/app-shell.2/artifacts/arc-types.manifest`,
           type: '[ArcMetadata]',
@@ -161,11 +168,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
     }
     _didMount() {
+      this.setAttribute('arc-app', '');
       this._meta = this.host.querySelector('arc-metadata');
       this._store = this.host.querySelector('arc-store');
     }
     _update(props, state, lastProps, lastState) {
-      if (state.arc && state.user && state.user !== lastState.user) {
+      if (state.arc && state.user && (state.user !== lastState.user || !state.identityViewData)) {
         state.identityViewData = this._synthesizeIdentityViewData(state.arc, state.user);
       }
       if (!state.plan && state.plans && state.plans.length && state.config.launcher) {
@@ -173,39 +181,42 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       if (state.user) {
         state.userId = state.user.id;
-        state.userName = state.user.name;
       }
       if (state.key) {
         Arcs.utils.setUrlParam('arc', state.key);
       }
       if (state.key && state.user) {
-        let profiles = state.user.profiles;
-        state.profileState = profiles ? (profiles[state.key] ? 1 : 0) : 0;
+        state.profileState = state.user.profiles ? (state.user.profiles[state.key] ? 1 : 0) : 0;
+        state.sharedState = state.user.shares ? (state.user.shares[state.key] ? 1 : 0) : 0;
       }
       super._update(props, state);
     }
-    _synthesizeIdentityViewData(arc, user) {
-      return {
-        id: user.id
-      };
-    }
     _render(props, state) {
-      state.usersOptions = {
-        $template: 'users-options',
-        models: this._renderUserOptionModels(state.users, state.user)
-      };
+      // only persistent-arc ever gets '*' as key, which will convert it into a real key
+      state.suggestKey = state.key;
+      if (state.key === '*') {
+        state.key = '';
+      }
+      // show toolbar buttons if not launcher
+      state.toolbarButtonsStyle = !state.config || state.config.launcher ? '' : 'display: flex;';
+      // unpack arc metadata for rendering
       if (state.metadata) {
         state.description = state.metadata.description;
         state.steps =  state.metadata.steps;
       }
-      // Xen will union member Objects when an Array is returned
-      return [
-        state.icons,
-        state.auth ? state : null,
-        {
-          hostConfig: state.user ? state.config : null
-        }
-      ];
+      // unpack user for rendering
+      if (state.user) {
+        state.userName = state.user.name;
+      }
+      // do not send config data to arc-host before `user` is ready
+      state.hostConfig = state.user ? state.config : null;
+      // populate user select
+      state.usersOptions = {
+        $template: 'users-options',
+        models: this._renderUserOptionModels(state.users, state.user)
+      };
+      // must have `auth` before doing anything else
+      return state.auth ? state : null;
     }
     _renderUserOptionModels(users, user) {
       let models = [
@@ -224,8 +235,29 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       return models;
     }
+    _synthesizeIdentityViewData(arc, user) {
+      return {
+        id: user.id
+      };
+    }
     _hasViews(state) {
       return Boolean(state.arcsView && state.identityView && state.identitiesView);
+    }
+    _setIfDirty(object) {
+      let dirty = null;
+      for (let property in object) {
+        let value = object[property];
+        if (this._state[property] !== value) {
+          if (!dirty) {
+            dirty = {};
+          }
+          dirty[property] = value;
+        }
+      }
+      if (dirty) {
+        this._setState(dirty);
+        return true;
+      }
     }
     _onConfig(e, config) {
       let key = config.key || '';
@@ -246,9 +278,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       this._setState({auth});
     }
     _onUsers(e, users) {
-      if (users !== this._state.users) {
-        this._setState({users, identitiesViewData: users});
-      }
+      this._setIfDirty({users});
     }
     _onUserSelected(e) {
       let user, userId;
@@ -273,26 +303,29 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _onUser(e, user, props, state) {
       // reference testing, remember to treat `user` as immutable
-      if (state.user != user) {
+      if (this._setIfDirty({user})) {
         if (user) {
           localStorage.setItem('currentUser', user.id);
         }
-        this._setState({user});
       }
     }
-    _onUserArcs(e, userArcs) {
+    _onVisitedArcs(e, visited) {
       this._setState({
-        arcsViewData: Object.keys(userArcs).map(key => {
-          let arc = userArcs[key];
+        arcsViewData: Object.keys(visited).map(key => {
+          let arc = visited[key];
           return {
             key: key,
             description: arc.description || key.slice(1),
             icon: arc.icon || 'broken_image',
             color: arc.color || 'gray',
-            href: `${location.origin}${location.pathname}?arc=${key}`
+            href: `${location.origin}${location.pathname}?arc=${key}`,
+            profile: arc.profile
           };
         })
       });
+    }
+    _onFriends(e, friends) {
+      this._setIfDirty({friends});
     }
     _onNewClick(e) {
       open(`${location.origin}${location.pathname}`, `_blank`);
@@ -301,36 +334,35 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       this._setState({key});
     }
     _onArc(e, arc) {
+      // for debugging
       window.arc = arc;
       this._setState({arc});
     }
     _onArcsView(e, arcsView) {
-      this._installSyntheticView('arcsView', arcsView)
+      this._installSyntheticView('arcsView', arcsView);
+      this._setState({visitedArcs: Arcs.utils.getViewData(arcsView)});
+      ArcApp.log('visitedArcs: ', Arcs.utils.getViewData(arcsView));
     }
     _onIdentityView(e, identityView) {
-      this._installSyntheticView('identityView', identityView)
+      this._installSyntheticView('identityView', identityView);
     }
     _onIdentitiesView(e, identitiesView) {
-      this._installSyntheticView('identitiesView', identitiesView)
+      this._installSyntheticView('identitiesView', identitiesView);
     }
     _installSyntheticView(name, view) {
-      if (this._state[name] !== view) {
-        ArcApp.log(name, view);
-        let state = {
-          plans: null
-        };
-        state[name] = view;
-        this._setState(state);
-      }
+      ArcApp.log(name, view);
+      let state = {
+        plans: null
+      };
+      state[name] = view;
+      this._setState(state);
     }
     _onMetadata(e, metadata) {
-      if (this._state.metadata !== metadata) {
-        this._setState({metadata});
-      }
+      this._setIfDirty({metadata});
     }
     _onProfileState(e, profileState) {
       ArcApp.log('profile state changed', profileState);
-      let {users, user, key} = this._state;
+      let {user, key} = this._state;
       if (user) {
         user.profiles = user.profiles || Object.create(null);
         if (profileState) {
@@ -339,18 +371,30 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           delete user.profiles[key];
         }
         ArcApp.log('mutating user object (onProfileState)', user);
-        this._setState({
-          user: Object.assign(Object.create(null), user)//,
-          //users: Object.assign(Object.create(null), users)
-        });
+        // `state.user` is considered immutable, need a copy
+        this._setState({user: Object.assign(Object.create(null), user)});
+      }
+    }
+    _onSharedState(e, sharedState) {
+      ArcApp.log('shared state changed', sharedState);
+      let {user, key} = this._state;
+      if (user) {
+        user.shares = user.shares || Object.create(null);
+        if (sharedState) {
+          user.shares[key] = true;
+        } else {
+          delete user.shares[key];
+        }
+        ArcApp.log('mutating user object (onSharedState)', user);
+        // `state.user` is considered immutable, need a copy
+        this._setState({user: Object.assign(Object.create(null), user)});
       }
     }
     _onSteps(e, steps) {
       this._updateMetadata({steps});
     }
     _onPlans(e, plans) {
-      if (plans !== this._state.plans) {
-        this._setState({plans});
+      if (this._setIfDirty({plans})) {
         this._fire('generations', plans.generations, document);
       }
     }

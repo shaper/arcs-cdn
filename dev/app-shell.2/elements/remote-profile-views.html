@@ -1,0 +1,53 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<script>
+  class RemoteProfileViews extends XenBase {
+    static get observedAttributes() { return ['arc', 'user']; }
+    _update(props, state, lastProps) {
+      if (props.arc && props.user && props.user !== lastProps.user) {
+        state.friends = null;
+        state.remotes = this._watchProfileViews(state.remotes, props.user, props.arc);
+      }
+    }
+    _watchProfileViews(remotes, user, arc) {
+      if (remotes) {
+        remotes.forEach(rv => rv.dispose());
+      }
+      if (user.profiles) {
+        //RemoteProfileViews.log(`watchProfileViews`, user.profiles);
+        let handler = this._remoteViewChanged.bind(this);
+        return Object.keys(user.profiles).map(key => this._createRemoteView({arc, key, profiles: true}, handler));
+      }
+    }
+    _createRemoteView(config, handler) {
+      let remote = Object.assign(new RemoteViews(), config);
+      remote.dispose = () => remote.removeEventListener('view', handler);
+      remote.addEventListener('view', handler);
+      return remote;
+    }
+    _remoteViewChanged(e) {
+      let view = e.detail;
+      RemoteProfileViews.log(`remoteViewChanged`, view.id); //, view);
+      if (!this._state.friends && view.id == 'PROFILE/[Person]/friends/') {
+        this._state.friends = view;
+        view.on('change', this._observeFriendsView.bind(this, view), this);
+        this._observeFriendsView(view);
+      }
+    }
+    _observeFriendsView(view) {
+      let data = Arcs.utils.getViewData(view);
+      RemoteProfileViews.log('observing FRIENDS: ', data);
+      this._fire('friends', data);
+    }
+  }
+  RemoteProfileViews.module = document.currentImport;
+  RemoteProfileViews.log = XenBase.logFactory('RemoteProfileViews', '#003c8f');
+  customElements.define('remote-profile-views', RemoteProfileViews);
+</script>

@@ -1,0 +1,86 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<script>
+  class RemoteVisitedArcs extends XenBase {
+    static get observedAttributes() { return ['user', 'arcs']; }
+    _update(props, state, lastProps) {
+       if (props.user !== lastProps.user) {
+        // disable old watches, enable fresh ones as needed
+        state.watches = this._watchVisitedArcs(state.watches, props.user);
+      }
+      if (props.arcs !== lastProps.arcs) {
+        this._updateVisitedArcs(props.arcs, props.user);
+      }
+    }
+    _watchVisitedArcs(watches, user) {
+      // TODO(sjmiles): right now this information is used exclusively by the launcher, maybe
+      // we only set this up conditionally?
+      let nodes, handler;
+      if (user && user.arcs) {
+        // db nodes representing all user's visited arcs
+        nodes = Object.keys(user.arcs).map(key => db.child(`arcs/${key}/`));
+        RemoteVisitedArcs.log(`watching ${nodes.length} visited arc(s)`);
+        // user.arcs contains arc keys
+        // build an object for mapping arc keys to arc metadata
+        let arcdata = Object.create(null); //Object.assign(Object.create(null), user.arcs);
+        // for each arc we are watching, when remote data changes, update the metadata map
+        handler = snap => {
+          // arc key, arc metadata record
+          let key = snap.key, record = snap.val();
+          // there should always be a record, but the DB might be damaged
+          if (record) {
+            // if this arc is part of our profile, mark it that way
+            if (user.profiles && user.profiles[key]) {
+              record.profile = key;
+            }
+            // stuff this record into our list of arc metadata
+            arcdata[key] = record;
+          }
+          // produce our deliverable
+          this._fire('arcs', arcdata);
+        }
+      } else {
+        // produce empty list of arcs
+        this._fire('arcs', []);
+      }
+      // live watch arc metadata
+      return this._watchGroup(watches, nodes, handler);
+    }
+    _watchGroup(disposer, nodes, cb) {
+      if (disposer) {
+        disposer();
+      }
+      if (nodes && cb) {
+        // listen to all nodes, creates list of listen-removers
+        let offs = nodes.map(node => {
+          let off = node.on('value', cb);
+          return () => node.off('value', off);
+        });
+        // return a function that will remove all listeners
+        return () => offs.forEach(off => off());
+      }
+    }
+    _updateVisitedArcs(arcs, user) {
+      let keys = arcs.map(a => a.rawData.key);
+      // no-op if data matches
+      // right now the only change we support is removal, so length check is enough
+      if (user.arcs && keys.length !== Object.keys(user.arcs).length) {
+        RemoteVisitedArcs.log('updateVisitedArcs', keys, user.arcs);
+        let visited = Object.create(null);
+        keys.forEach(key => visited[key] = user.arcs[key]);
+        RemoteVisitedArcs.log('WRITING (updateVisitedArcs)', visited);
+        //db.child(`users/${user.id}/arcs`).set(visited);
+      }
+    }
+  }
+  RemoteVisitedArcs.module = document.currentImport;
+  RemoteVisitedArcs.log = XenBase.logFactory('RemoteVisitedArcs', '#003c8f');
+  customElements.define('remote-visited-arcs', RemoteVisitedArcs);
+</script>

@@ -12,3 +12,4 @@ schema ArcMetadata
     Text key
     Text href
     Text color
+    Text profile

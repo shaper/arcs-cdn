@@ -42,25 +42,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       // arc-view, suitable for `use`, `?`
       let view = arc.createView(typeOf, name, arc.generateID(), tags);
       // observe view
-      view.on('change', change => {
-        //ArcView.log('arcsView change detected', change);
-        this._fire('view', view);
-      }, {});
+      view.on('change', change => this._fire('view', view), this);
       ArcView.log('created view', name, tags);
       return view;
     }
     _updateView(view, data, arc) {
-      //ArcView.log(`updateView: [${view.name}]`, data);
       if (view.toList) {
-        view.toList().forEach(entity => {
-          view.remove(entity.id);
+        data = Object.keys(data).map(key => {
+          return {id: arc.generateID(), rawData: data[key]};
         });
-        for (let key in data) {
-          view.store({id: arc.generateID(), rawData: data[key]});
-        }
       } else {
-        view.set({id: arc.generateID(), rawData: data});
+        data = {id: arc.generateID(), rawData: data};
       }
+      Arcs.utils.setViewData(view, data);
     }
   }
   ArcView.module = document.currentImport;

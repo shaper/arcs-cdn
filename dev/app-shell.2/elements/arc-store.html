@@ -10,7 +10,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
 <!-- firebase -->
 <script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-auth.js"></script>
+<!--<script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-auth.js"></script>-->
 <script src="https://www.gstatic.com/firebasejs/4.2.0/firebase-database.js"></script>
 
 <script>
@@ -31,6 +31,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   db.dump = () => db.once('value').then(snap => console.log(db.data = snap.val()));
   scope.db = db;
 
+  /*
   class ArcStore extends XenBase {
     static get observedAttributes() { return ['key','metadata','users','arc','viewtags']; }
     _didMount() {
@@ -184,7 +185,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             if (!changedHere(data)) {
               ArcStore.log('REMOTE change detected, updating local', data);
               if (data.length) {
-                // TODO(sjmiles): this doesn't feel right, it's likely ineffecient, but also we are
+                // TODO(sjmiles): this doesn't feel right, it's likely inefficient, but also we are
                 // proliferating unique entity instances that are really just clones
                 view.toList().forEach(v => view.remove(v.id));
                 data.forEach(d => view.store(d));
@@ -241,5 +242,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   ArcStore.module = document.currentImport;
   ArcStore.log = XenBase.logFactory('ArcStore', '#a30000');
   customElements.define('arc-store', ArcStore);
+  */
 })(this);
 </script>

@@ -29,8 +29,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       this._off = () => node.off('value', handle);
     }
     _arcData(arc, areProfiles, snap) {
-      let views = snap.val();
       let arcKey = '-key';
+      let views = snap.val();
       RemoteViews.log('(incoming)', snap.key, views);
       if (views) {
         Object.keys(views).forEach(key => {
@@ -44,7 +44,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           let id = this._getContextViewId(type, meta.tags, arcKey, areProfiles);
           // find or create a view in the arc context
           let view = arc.context.newView(type, meta.name, id, meta.tags);
-          RemoteViews.log('created view', id, view);
+          Arcs.utils.setViewData(view, remote.values);
+          RemoteViews.log('created view', id);
           this._fire('view', view);
         });
       }

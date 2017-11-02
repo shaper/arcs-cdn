@@ -10,7 +10,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
 (scope => {
   class PersistentArc extends XenBase {
-    static get observedAttributes() { return ['key','metadata','description']; }
+    static get observedAttributes() { return ['key','metadata']; }
     get _db() {
       return db.child(`arcs`);
     }
@@ -19,7 +19,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this._createKey();
       }
       if (props.key && props.key !== '*') {
-        if (props.metadata && props.metadata !== lastProps.metadata) { //state.metadata) {
+        if (props.metadata && props.metadata !== lastProps.metadata) {
           let node = this._db.child(props.key);
           PersistentArc.log('WRITING (update) metadata for', String(node), props.metadata);
           node.update(props.metadata);

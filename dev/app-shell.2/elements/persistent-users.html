@@ -12,61 +12,32 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
 (scope => {
   class PersistentUsers extends XenBase {
-    static get observedAttributes() { return ['arc']; }
+    static get observedAttributes() { return []; }
     _update(props, state, lastProps) {
-      if (props.arc !== lastProps.arc) {
-        state.connected = false;
+      if (!state.connected) {
+        state.connected = true;
+        this._connect();
       }
-      if (props.arc) {
-        if (!state.connected) {
-          this._connect(props.arc);
-        }
-        this._fire('users', state.users);
-      }
+      this._fire('users', state.users);
     }
     get _usersdb() {
       return db.child('users');
     }
-    async _connect(arc) {
-      this._state.connected = true;
+    async _connect() {
       if (this._off) {
         this._off();
         this._off = null;
       }
       let node = this._usersdb;
       PersistentUsers.log('watching', String(node));
-      let watch = node.on('value', this._remoteChanged.bind(this, arc));
+      let watch = node.on('value', this._remoteChanged.bind(this));
       this._off = () => node.off('value', watch);
     }
-    _remoteChanged(arc, snap) {
-      /*
-      let users = snap.val();
-      if (users === null) {
-        // should cause re-entry
-        snap.ref.push({name: 'Anonymous'});
-      } else {
-        Object.keys(users).forEach(k => users[k].id = k);
-        this._watchProfileData(users, arc);
-        this._setState({users})
-        PersistentUsers.log('remoteChanged', users);
-      }
-      */
+    _remoteChanged(snap) {
       let users = snap.val() || [];
       Object.keys(users).forEach(k => users[k].id = k);
-      //this._watchProfileData(users, arc);
       this._setState({users})
       PersistentUsers.log('remoteChanged', users);
-    }
-    _watchProfileData(users, arc) {
-      Object.keys(users).forEach(id => {
-        PersistentUsers.log(`connecting to ${id}'s remote profile`);
-        let user = users[id];
-        let keys = Object.keys(user.profiles || Object);
-        let remotes = keys.map(remotekey => {
-          // RemoteViews synchronizes views from `remotekey` into `arc`'s context
-          return Object.assign(new RemoteViews(), {arc, remotekey});
-        });
-      });
     }
   }
   PersistentUsers.module = document.currentImport;

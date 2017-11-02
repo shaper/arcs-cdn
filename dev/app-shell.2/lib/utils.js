@@ -100,6 +100,20 @@ let utils = {
         object[n] = null;
       }
     }
+  },
+  getViewData(view) {
+    return view.toList ? view.toList() : {
+      id: view.id,
+      rawData: view._stored && view._stored.rawData || {}
+    };
+  },
+  setViewData(view, data) {
+    if (view.toList) {
+      view.toList().forEach(e => view.remove(e.id));
+      data && data.forEach(e => view.store(e));
+    } else {
+      view.set(data);
+    }
   }
 };
 
