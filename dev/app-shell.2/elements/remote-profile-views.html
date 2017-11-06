@@ -11,29 +11,32 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   class RemoteProfileViews extends XenBase {
     static get observedAttributes() { return ['arc', 'user']; }
     _update(props, state, lastProps) {
-      if (props.arc && props.user && props.user !== lastProps.user) {
+      if (props.arc && props.arc !== lastProps.arc) {
+        state.arc = props.arc;
+      }
+      if (props.user && props.user !== lastProps.user) {
+        state.user = props.user;
+      }
+      if (state.arc && state.user) {
+        state.arc = null;
+        state.user = null;
         state.friends = null;
-        state.remotes = this._watchProfileViews(state.remotes, props.user, props.arc);
+        state.remotes && state.remotes.forEach(r => r.dispose());
+        state.remotes = this._watchProfileViews(props.user, props.arc);
       }
     }
-    _watchProfileViews(remotes, user, arc) {
-      if (remotes) {
-        remotes.forEach(rv => rv.dispose());
-      }
-      if (user.profiles) {
-        //RemoteProfileViews.log(`watchProfileViews`, user.profiles);
-        let handler = this._remoteViewChanged.bind(this);
-        return Object.keys(user.profiles).map(key => this._createRemoteView({arc, key, profiles: true}, handler));
-      }
+    _watchProfileViews(user, arc) {
+      let handler = e => {
+        this._remoteViewChanged(arc, e.detail.view, e.detail.data);
+      };
+      let keys = Arcs.utils.getUserProfileKeys(user);
+      return keys.map(key =>
+        this._createRemoteView({arc, key, profiles: true}, handler)
+      );
     }
-    _createRemoteView(config, handler) {
-      let remote = Object.assign(new RemoteViews(), config);
-      remote.dispose = () => remote.removeEventListener('view', handler);
-      remote.addEventListener('view', handler);
-      return remote;
-    }
-    _remoteViewChanged(e) {
-      let view = e.detail;
+    _remoteViewChanged(arc, view, data) {
+      //remoteView._createOrUpdateViews(arc, views, areProfiles);
+      Arcs.utils.setViewData(view, data);
       RemoteProfileViews.log(`remoteViewChanged`, view.id); //, view);
       if (!this._state.friends && view.id == 'PROFILE/[Person]/friends/') {
         this._state.friends = view;
@@ -45,6 +48,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let data = Arcs.utils.getViewData(view);
       RemoteProfileViews.log('observing FRIENDS: ', data);
       this._fire('friends', data);
+    }
+    _createRemoteView(config, handler) {
+      let remote = Object.assign(new RemoteViews(), config);
+      remote.dispose = () => remote.removeEventListener('view', handler);
+      remote.addEventListener('view', handler);
+      return remote;
     }
   }
   RemoteProfileViews.module = document.currentImport;

@@ -114,6 +114,15 @@ let utils = {
     } else {
       view.set(data);
     }
+  },
+  getUserProfileKeys(user) {
+    // TODO(sjmiles): database has no referential integrity, so
+    // `user.profiles` may contain dead keys. The actual profile
+    // set is the intersection of `user.arcs` and `user.profiles`.
+    if (user.arcs && user.profiles) {
+      return Object.keys(user.arcs).filter(key => Boolean(user.profiles[key]));
+    }
+    return [];
   }
 };
 

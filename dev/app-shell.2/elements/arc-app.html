@@ -27,6 +27,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="persistent-views.html">
 <link rel="import" href="remote-shared-views.html">
 <link rel="import" href="remote-profile-views.html">
+<link rel="import" href="remote-friends-profile-views.html">
 
 <template>
   <style>
@@ -115,11 +116,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <persistent-users on-users="_onUsers"></persistent-users>
   <persistent-user id="{{userId}}" user="{{user}}" key="{{key}}" on-user="_onUser"></persistent-user>
   <remote-visited-arcs user="{{user}}" arcs="{{visitedArcs}}" on-arcs="_onVisitedArcs"></remote-visited-arcs>
-
   <persistent-arc key="{{suggestKey}}" on-key="_onKey" metadata="{{metadata}}" on-metadata="_onMetadata"></persistent-arc>
   <persistent-views arc="{{arc}}" key="{{key}}"></persistent-views>
   <remote-profile-views arc="{{arc}}" user="{{user}}" on-friends="_onFriends"></remote-profile-views>
-  <remote-shared-views arc="{{arc}}" user="{{user}}" friends="{{friends}}"></remote-visited-arcs>
+  <remote-shared-views arc="{{arc}}" friends="{{friends}}"></remote-shared-views>
+  <remote-friends-profiles-views arc="{{arc}}" friends="{{friends}}"></remote-friends-profile-views>
 
   <arc-view arc="{{arc}}" data="{{arcsViewData}}" options="{{arcsViewOptions}}" on-view="_onArcsView"></arc-view>
   <arc-view arc="{{arc}}" data="{{identityViewData}}" options="{{identityViewOptions}}" on-view="_onIdentityView"></arc-view>
@@ -169,8 +170,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _didMount() {
       this.setAttribute('arc-app', '');
-      this._meta = this.host.querySelector('arc-metadata');
-      this._store = this.host.querySelector('arc-store');
+      //this._meta = this.host.querySelector('arc-metadata');
+      //this._store = this.host.querySelector('arc-store');
     }
     _update(props, state, lastProps, lastState) {
       if (state.arc && state.user && (state.user !== lastState.user || !state.identityViewData)) {
@@ -184,10 +185,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       if (state.key) {
         Arcs.utils.setUrlParam('arc', state.key);
-      }
-      if (state.key && state.user) {
-        state.profileState = state.user.profiles ? (state.user.profiles[state.key] ? 1 : 0) : 0;
-        state.sharedState = state.user.shares ? (state.user.shares[state.key] ? 1 : 0) : 0;
       }
       super._update(props, state);
     }
@@ -207,6 +204,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       // unpack user for rendering
       if (state.user) {
         state.userName = state.user.name;
+      }
+      // unpack button states
+      if (state.key && state.user) {
+        state.profileState = state.user.profiles ? (state.user.profiles[state.key] ? 1 : 0) : 0;
+        state.sharedState = state.user.shares ? (state.user.shares[state.key] ? 1 : 0) : 0;
       }
       // do not send config data to arc-host before `user` is ready
       state.hostConfig = state.user ? state.config : null;

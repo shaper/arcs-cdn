@@ -1,0 +1,68 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<script>
+  class RemoteFriendsProfileViews extends XenBase {
+    static get observedAttributes() { return ['arc', 'friends']; }
+    _getInitialState() {
+      return {
+        dispose: () => {}
+      }
+    }
+    _update(props, state, lastProps) {
+      if (props.arc && props.friends && props.friends !== lastProps.friends) {
+        state.dispose();
+        state.dispose = this._watchFriendsProfilesViews(props.arc, props.friends, props.user);
+      }
+    }
+    _watchFriendsProfilesViews(arc, friends, user) {
+      let remotes = [];
+      friends = friends.map(friend => friend.rawData);
+      RemoteFriendsProfileViews.log('got raw FRIENDS', friends);
+      friends.forEach(friend => {
+        // watch the user data at key
+        let node = db.child(`users/${friend.id}`);
+        let watchers = [];
+        RemoteFriendsProfileViews.log(`watching friend's user`, String(node.ref));
+        let off = node.on('value', snap => this._watchFriendProfileViews(arc, watchers, snap));
+        remotes.push({dispose: () => node.off('value', off)})
+      });
+      return () => remotes.forEach(remote => remote.dispose());
+    }
+    _watchFriendProfileViews(arc, watchers, snap) {
+      // clean up old watchers
+      watchers && watchers.forEach(rv => rv.dispose());
+      // reuse this object
+      watchers.splice(0);
+      // get user record
+      let user = snap.val();
+      RemoteFriendsProfileViews.log(`READING friend's user [${user.name}]`, String(snap.ref));
+      // find keys for user's profile arcs
+      let keys = Arcs.utils.getUserProfileKeys(user);
+      keys.forEach(key => {
+        RemoteFriendsProfileViews.log(`watching friend's [${user.name}] profile views`, String(snap.ref));
+        watchers.push(this._watchRemoteViews(arc, key, snap => {
+          RemoteFriendsProfileViews.log(`READING friend's [${user.name}] profile view`, String(snap.ref));
+          //return remote;
+        }));
+      });
+    }
+    _watchRemoteViews(arc, key, handler) {
+      //let remote = Object.assign(new RemoteViews(), config);
+      //remote.addEventListener('view', e => handler(e.detail.view, e.detail.data));
+      //remote.dispose = () => remote.removeEventListener('view', handler);
+      let node = db.child(`arcs/${key}/views`);
+      let handle = node.on('value', handler);
+      return {dispose: () => node.off('value', handle)};
+    }
+  }
+  RemoteFriendsProfileViews.module = document.currentImport;
+  RemoteFriendsProfileViews.log = XenBase.logFactory('RemoteFriendsProfileViews', '#805acb');
+  customElements.define('remote-friends-profiles-views', RemoteFriendsProfileViews);
+</script>

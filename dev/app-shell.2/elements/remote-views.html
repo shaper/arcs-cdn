@@ -32,23 +32,22 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let arcKey = '-key';
       let views = snap.val();
       RemoteViews.log('(incoming)', snap.key, views);
-      if (views) {
-        Object.keys(views).forEach(key => {
-          let remote = views[key];
-          let meta = remote.metadata;
-          //RemoteViews.log('creating type from', meta);
-          // construct type object
-          let type = new Arcs.Type(meta.type.tag, meta.type.data);
-          //RemoteViews.log('type', type);
-          // construct id
-          let id = this._getContextViewId(type, meta.tags, arcKey, areProfiles);
-          // find or create a view in the arc context
-          let view = arc.context.newView(type, meta.name, id, meta.tags);
-          Arcs.utils.setViewData(view, remote.values);
-          RemoteViews.log('created view', id);
-          this._fire('view', view);
-        });
-      }
+      this._createOrUpdateViews(arc, snap.key, views, areProfiles);
+    }
+    _createOrUpdateViews(arc, key, views, areProfiles) {
+      Object.keys(views).forEach(key => {
+        let remote = views[key];
+        let meta = remote.metadata;
+        // construct type object
+        let type = new Arcs.Type(meta.type.tag, meta.type.data);
+        // construct id
+        let id = this._getContextViewId(type, meta.tags, key, areProfiles);
+        // find or create a view in the arc context
+        let view = this._requireView(arc, type, meta.name, id, meta.tags);
+        //Arcs.utils.setViewData(view, remote.values);
+        RemoteViews.log('created/updated view', id);
+        this._fire('view', {view, data: remote.values});
+      });
     }
     // Returns the context view id for the given params.
     _getContextViewId(type, tags, amkey, isProfile) {
@@ -57,6 +56,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         + `${type.toString().replace(' ', '-')}/`
         + ((tags && [...tags].length) ? `${[...tags].sort().join('-').replace(/#/g, '')}/` : '')
         ;
+    }
+    _requireView(arc, type, name, id, tags) {
+      return arc.context.findViewById(id) || arc.context.newView(type, name, id, tags);
     }
   }
   RemoteViews.module = document.currentImport;

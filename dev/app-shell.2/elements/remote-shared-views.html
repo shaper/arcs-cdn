@@ -9,13 +9,13 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 -->
 <script>
   class RemoteSharedViews extends XenBase {
-    static get observedAttributes() { return ['arc', 'friends', 'user']; }
+    static get observedAttributes() { return ['arc', 'friends']; }
     _update(props, state, lastProps) {
-      if (props.friends && props.user && props.friends !== lastProps.friends) {
-        state.remotes = this._watchSharedViews(state.remotes, props.friends, props.user, props.arc);
+      if (props.friends && props.friends !== lastProps.friends) {
+        state.remotes = this._watchSharedViews(state.remotes, props.friends, props.arc);
       }
     }
-    _watchSharedViews(remotes, friends, user, arc) {
+    _watchSharedViews(remotes, friends, arc) {
       remotes && remotes.forEach(rv => rv.dispose());
       remotes = [];
       //
@@ -38,16 +38,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         });
       }
     }
+    /*
     _createRemoteView(config, handler) {
       let remote = Object.assign(new RemoteViews(), config);
       remote.dispose = () => remote.removeEventListener('view', handler);
-      remote.addEventListener('view', handler);
+      remote.addEventListener('view', e => handler(e.detai.view, e.detail.data));
       return remote;
     }
-    _remoteViewChanged(e) {
-      let view = e.detail;
+    _remoteViewChanged(e, info) {
+      let {view, data} = info;
+      Arcs.utils.setViewData(view, data);
       RemoteSharedViews.log(`remoteViewChanged`, view.id); //, view);
     }
+    */
   }
   RemoteSharedViews.module = document.currentImport;
   RemoteSharedViews.log = XenBase.logFactory('RemoteSharedViews', '#c79400');
