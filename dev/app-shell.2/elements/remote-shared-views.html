@@ -12,13 +12,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     static get observedAttributes() { return ['arc', 'friends', 'user']; }
     _update(props, state, lastProps) {
       if (props.friends && props.user && props.friends !== lastProps.friends) {
-        state.remotes = this._watchSharedViews(state.remotes, props.friends, props.user, props.arc);
+        state.dispose && state.dispose();
+        state.dispose = this._watchSharedViews(props.friends, props.user, props.arc);
       }
     }
-    _watchSharedViews(remotes, friends, user, arc) {
-      remotes && remotes.forEach(rv => rv.dispose());
-      remotes = [];
-      //
+    _watchSharedViews(dispose, friends, user, arc) {
+      let remotes = [];
       friends = friends.map(friend => friend.rawData);
       RemoteSharedViews.log('found FRIENDS', friends);
       friends.forEach(friend => {
@@ -27,7 +26,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         let off = node.on('value', snap => this._watchSharedArcs(snap));
         remotes.push({dispose: () => node.off('value', off)})
       });
-      return remotes;
+      return () => {
+        remotes && remotes.forEach(rv => rv.dispose());
+      }
     }
     _watchSharedArcs(snap) {
       let arcs = snap.val();

@@ -9,21 +9,33 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 -->
 <script>
   class WatchGroup extends XenBase {
-    static get observedAttributes() { return ['arc','key']; }
-    _update(props, state) {
-    }
+    static get observedAttributes() { return ['watches']; }
     _getInitialState() {
       return {
-        nodes: new Set(),
         plugs: new Set()
       };
     }
-    _unplug() {
-      this._state.plugs.forEach(pull => pull());
-      this._setState(this._getInitialState());
+    _update(props, state, lastProps) {
+      if (props.watches !== lastProps.watches) {
+        this._unplug(state.plugs);
+        state.plugs.clear();
+        if (props.watches) {
+          this._watchAll(props.watches, state.plugs);
+        }
+      }
     }
-    _watch(node, view, cb) {
-      return () => node.off('value', node.on('value', cb));
+    _unplug(plugs) {
+      plugs.forEach(pull => pull());
+      plugs.clear();
+    }
+    _watchAll(watches, plugs) {
+      for (let watch of watches) {
+        plugs.add(this._watch(watch.node, watch.handler));
+      }
+    }
+    _watch(node, handler) {
+      let handle = node.on('value', handler);
+      return () => node.off('value', handle);
     }
   }
   WatchGroup.module = document.currentImport;

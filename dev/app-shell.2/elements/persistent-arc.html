@@ -11,6 +11,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 (scope => {
   class PersistentArc extends XenBase {
     static get observedAttributes() { return ['key','metadata']; }
+    _getInitialState() {
+      return {
+        watch: new WatchGroup()
+      };
+    }
     get _db() {
       return db.child(`arcs`);
     }
@@ -25,7 +30,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           node.update(props.metadata);
         }
         if (props.key !== lastProps.key) {
-          this._watchKey(props.key);
+          state.watch.watches = [this._watchKey(state.watch, props.key)];
         }
       }
     }
@@ -42,27 +47,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       PersistentArc.log('createKey', key);
       this._fire('key', key);
     }
-    async _watchKey(key) {
-      this._unwatch();
+    async _watchKey(watch, key) {
       let node = this._db.child(key);
       PersistentArc.log('watching', String(node));
-      this._watch(node);
+      return {
+        node,
+        handler: snap => this.remoteChanged(snap)
+      };
     }
     _remoteChanged(snap) {
       let metadata = snap.val();
       this._setState({metadata});
       PersistentArc.log('remoteChanged', metadata);
       this._fire('metadata', metadata);
-    }
-    _watch(node) {
-      let watch = node.on('value', this._remoteChanged.bind(this));
-      this._off = () => node.off('value', watch);
-    }
-    _unwatch() {
-      if (this._off) {
-        this._off();
-        this._off = null;
-      }
     }
   }
   PersistentArc.module = document.currentImport;

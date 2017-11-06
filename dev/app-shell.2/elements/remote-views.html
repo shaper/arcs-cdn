@@ -10,23 +10,35 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
   class RemoteViews extends XenBase {
     static get observedAttributes() { return ['arc', 'key', 'profiles']; }
+    _getInitialState() {
+      return {
+        watch: new WatchGroup()
+      };
+    }
     get _db() {
       return db;
     }
     _update(props, state, lastProps) {
       if (props.key && lastProps.key !== props.key) {
         state.needsWatch = true;
+        state.watch.watches = null;
       }
       if (props.arc && state.needsWatch) {
         state.needsWatch = false;
-        this._watchViews(props.key, props.arc, props.profiles);
+        state.watch.watches = [this._watchViews(props.key, props.arc, props.profiles)];
       }
     }
     _watchViews(key, arc, areProfiles) {
+      return {
+        node: this._db.child(`arcs/${key}/views`),
+        handler: snap => this._arcData(arc, areProfiles, snap)
+      };
+      /*
       let node = this._db.child(`arcs/${key}/views`);
       this._off && this._off();
       let handle = node.on('value', this._arcData.bind(this, arc, areProfiles));
       this._off = () => node.off('value', handle);
+      */
     }
     _arcData(arc, areProfiles, snap) {
       let arcKey = '-key';

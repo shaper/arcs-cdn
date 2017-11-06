@@ -26,12 +26,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         return Object.keys(user.profiles).map(key => this._createRemoteView({arc, key, profiles: true}, handler));
       }
     }
-    _createRemoteView(config, handler) {
-      let remote = Object.assign(new RemoteViews(), config);
-      remote.dispose = () => remote.removeEventListener('view', handler);
-      remote.addEventListener('view', handler);
-      return remote;
-    }
     _remoteViewChanged(e) {
       let view = e.detail;
       RemoteProfileViews.log(`remoteViewChanged`, view.id); //, view);
@@ -45,6 +39,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       let data = Arcs.utils.getViewData(view);
       RemoteProfileViews.log('observing FRIENDS: ', data);
       this._fire('friends', data);
+    }
+    _createRemoteView(config, handler) {
+      let remote = Object.assign(new RemoteViews(), config);
+      remote.dispose = () => remote.removeEventListener('view', handler);
+      remote.addEventListener('view', handler);
+      return remote;
     }
   }
   RemoteProfileViews.module = document.currentImport;

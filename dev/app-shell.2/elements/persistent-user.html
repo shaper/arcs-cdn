@@ -11,6 +11,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 (scope => {
   class PersistentUser extends XenBase {
     static get observedAttributes() { return ['id','user','key']; }
+    _getInitialState() {
+      return {
+        watch: new WatchGroup()
+      };
+    }
     get _usersdb() {
       return db.child('users');
     }
@@ -30,7 +35,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       // if we have a novel id, watch the user data in the database
       if (props.id && props.id !== lastProps.id) {
-        this._watchUser(props.id);
+        state.watch.watches = [this._watchUser(props.id)];
       }
       // TODO(sjmiles): none of this `key` stuff should be in this module
       // if we have a fresh (current Arc) key, store it for processing when we have a user
@@ -51,45 +56,29 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     }
     _createUser(user) {
       PersistentUser.log('WRITING user (createUser)', user);
-      // TODO(sjmiles); user in the database doesn't host it's own id field (equivalent to it's key)
+      // TODO(sjmiles): user in the database doesn't host it's own id field (equivalent to it's key)
       // but the field in RAM does, is this a footgun? Hosting the id field in the database requires
       // two writes which causes observer thrash.
       user.id = this._usersdb.push(user).key;
       return user;
     }
-    /*
-    _createArcKey() {
-      return db.child(`arcs`).push({}).key;
-    }
-    */
-    async _watchUser(id) {
-      this._unwatch();
-      let node = this._usersdb.child(id);
-      let user = (await node.once('value')).val();
-      if (!user || !user.id) {
-        if (user === null) {
-          user = {};
+    _watchUser(id) {
+      return {
+        node: this._usersdb.child(id),
+        handler: snap => {
+          let user = snap.val();
+          PersistentUser.log('remoteUserChanged', user, 'from', String(snap.ref));
+          if (!user || !user.id) {
+            if (!user) {
+              user = {};
+            }
+            user.id = id;
+            PersistentUser.log('WRITING user (watchUser)', user);
+            node.set(Arcs.utils.removeUndefined(user));
+          }
+          this._setState({user})
         }
-        user.id = id;
-        PersistentUser.log('WRITING user (watchUser)', user);
-        node.set(Arcs.utils.removeUndefined(user));
-      }
-      this._watch(node, this._remoteUserChanged.bind(this));
-    }
-    _remoteUserChanged(snap) {
-      let user = snap.val();
-      PersistentUser.log('remoteUserChanged', user, 'from', String(snap.ref));
-      this._setState({user})
-    }
-    _watch(node, cb) {
-      let watch = node.on('value', cb);
-      this._off = () => node.off('value', watch);
-    }
-    _unwatch() {
-      if (this._off) {
-        this._off();
-        this._off = null;
-      }
+      };
     }
   }
   PersistentUser.module = document.currentImport;
